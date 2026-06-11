@@ -3,6 +3,24 @@ variable "project_id" {
   type        = string
 }
 
+variable "manage_environment_tag" {
+  description = "Se true, faz o binding da tag de governanca 'environment' no projeto (a tag key/values vem do state org/)."
+  type        = bool
+  default     = false
+}
+
+variable "org_id" {
+  description = "ID numerico da organizacao (necessario quando manage_environment_tag = true)."
+  type        = string
+  default     = ""
+}
+
+variable "environment_tag_value" {
+  description = "Short name do value da tag environment (ex.: Staging, Production)."
+  type        = string
+  default     = ""
+}
+
 variable "activate_apis" {
   description = "Lista de APIs (services) a habilitar no projeto."
   type        = list(string)

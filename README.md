@@ -66,6 +66,7 @@ cloud_iac/
 │   ├── main.tf  variables.tf  providers.tf
 │   ├── stg.tfvars  prd.tfvars
 │   └── README.md
+├── org/                       # rodar 1x por um admin de org (tag 'environment')
 ├── modules/                   # blocos reutilizáveis
 │   ├── project_baseline/      # habilita APIs
 │   ├── gcs_bucket/            # bucket seguro (sem acesso público)
@@ -101,7 +102,11 @@ cloud_iac/
    terraform apply -var-file=stg.tfvars
    terraform apply -var-file=prd.tfvars
    ```
-4. **Branch protection** em `main` e `stg` (ver [SECURITY.md](./SECURITY.md)).
+4. **Org** (tag de governança `environment`, admin de org — ver [org/README.md](./org/README.md)):
+   ```bash
+   cd org && terraform init && terraform apply
+   ```
+5. **Branch protection** em `main` e `stg` (ver [SECURITY.md](./SECURITY.md)).
 
 A partir daqui, ninguém roda `apply` à mão — a esteira faz tudo.
 

@@ -25,3 +25,14 @@ variable "github_owner" {
   type        = string
   default     = "gem-dados"
 }
+
+variable "org_id" {
+  description = "ID numerico da organizacao GCP (para a tag de governanca 'environment')."
+  type        = string
+}
+
+variable "manage_environment_tag" {
+  description = "Liga o binding da tag 'environment'. Requer o state org/ aplicado antes."
+  type        = bool
+  default     = true
+}

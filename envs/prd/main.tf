@@ -13,15 +13,22 @@ locals {
     repo       = "cloud_iac"
     org        = "gem-dados"
   }
+
+  # Mapeia o ambiente para o value da tag de governanca 'environment'.
+  environment_tag_value = var.env == "prd" ? "Production" : "Staging"
 }
 
 # ---------------------------------------------------------------------------
-# 1) Baseline do projeto (APIs). Tudo abaixo depende disto (depends_on) para
-#    nao tentar criar recurso antes da API estar habilitada no 1o apply.
+# 1) Baseline do projeto (APIs + tag de governanca). Tudo abaixo depende disto
+#    (depends_on) para nao tentar criar recurso antes da API estar habilitada.
 # ---------------------------------------------------------------------------
 module "baseline" {
   source     = "../../modules/project_baseline"
   project_id = var.project_id
+
+  manage_environment_tag = var.manage_environment_tag
+  org_id                 = var.org_id
+  environment_tag_value  = local.environment_tag_value
 }
 
 # ---------------------------------------------------------------------------
