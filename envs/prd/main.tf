@@ -16,6 +16,23 @@ locals {
 
   # Mapeia o ambiente para o value da tag de governanca 'environment'.
   environment_tag_value = var.env == "prd" ? "Production" : "Staging"
+
+  # Branch-por-ambiente: prd usa 'main', os demais usam 'stg'.
+  deploy_branch_regex = var.env == "prd" ? "^main$" : "^stg$"
+  deploy_branch_name  = var.env == "prd" ? "main" : "stg"
+
+  # SA terraform-ci (criada no bootstrap) — reusada como SA das esteiras de app.
+  cicd_sa_id = "projects/${var.project_id}/serviceAccounts/terraform-ci@${var.project_id}.iam.gserviceaccount.com"
+
+  # Service agent do Dataform (roda as transformacoes no BigQuery).
+  dataform_sa = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-dataform.iam.gserviceaccount.com"
+
+  # Conexao Cloud Build 2nd gen criada no bootstrap.
+  connection_id = "projects/${var.project_id}/locations/${var.region}/connections/github-gem-dados"
+}
+
+data "google_project" "current" {
+  project_id = var.project_id
 }
 
 # ---------------------------------------------------------------------------
@@ -164,9 +181,92 @@ module "dataform" {
   name             = "data-models"
   default_database = var.project_id
 
-  # Para ligar ao GitHub, crie o secret com o PAT e descomente:
-  # git_url              = "https://github.com/gem-dados/data_models.git"
-  # token_secret_version = "projects/${var.project_id}/secrets/dataform-github-token/versions/latest"
+  # Linka ao repo data_models (usa o mesmo secret/PAT do Cloud Build).
+  git_url              = "https://github.com/gem-dados/data_models.git"
+  default_branch       = local.deploy_branch_name
+  token_secret_version = "projects/${var.project_id}/secrets/github-oauth-token/versions/latest"
 
-  depends_on = [module.baseline]
+  depends_on = [
+    module.baseline,
+    google_secret_manager_secret_iam_member.dataform_git,
+  ]
+}
+
+# Permissoes do service agent do Dataform: ler o secret do git + rodar no BigQuery.
+resource "google_secret_manager_secret_iam_member" "dataform_git" {
+  project   = var.project_id
+  secret_id = "github-oauth-token"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = local.dataform_sa
+}
+
+resource "google_project_iam_member" "dataform_bq_data" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = local.dataform_sa
+}
+
+resource "google_project_iam_member" "dataform_bq_jobs" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = local.dataform_sa
+}
+
+# Agendamento do Dataform: compila a branch do ambiente e executa diariamente.
+resource "google_dataform_repository_release_config" "scheduled" {
+  provider = google-beta
+
+  project       = var.project_id
+  region        = var.region
+  repository    = module.dataform.name
+  name          = "scheduled"
+  git_commitish = local.deploy_branch_name
+  cron_schedule = "0 6 * * *"
+  time_zone     = "America/Sao_Paulo"
+}
+
+resource "google_dataform_repository_workflow_config" "daily" {
+  provider = google-beta
+
+  project        = var.project_id
+  region         = var.region
+  repository     = module.dataform.name
+  name           = "daily"
+  release_config = google_dataform_repository_release_config.scheduled.id
+  cron_schedule  = "0 7 * * *"
+  time_zone      = "America/Sao_Paulo"
+}
+
+# ---------------------------------------------------------------------------
+# 8) Esteira do data_ingestion (app): build da imagem -> push AR -> deploy
+#    no Cloud Run. Usa a conexao 2nd gen ja criada no bootstrap e roda como a
+#    SA terraform-ci (tem AR/run/serviceAccountUser/logging). Branch-por-ambiente.
+# ---------------------------------------------------------------------------
+resource "google_cloudbuildv2_repository" "data_ingestion" {
+  project           = var.project_id
+  location          = var.region
+  name              = "data_ingestion"
+  parent_connection = local.connection_id
+  remote_uri        = "https://github.com/gem-dados/data_ingestion.git"
+}
+
+resource "google_cloudbuild_trigger" "ingestion_deploy" {
+  project         = var.project_id
+  location        = var.region
+  name            = "ingestion-${var.env}-deploy"
+  description     = "Build e deploy do data_ingestion no Cloud Run (${var.env})."
+  filename        = "cloudbuild.yaml"
+  service_account = local.cicd_sa_id
+
+  repository_event_config {
+    repository = google_cloudbuildv2_repository.data_ingestion.id
+    push {
+      branch = local.deploy_branch_regex
+    }
+  }
+
+  substitutions = {
+    _ENV    = var.env
+    _REGION = var.region
+  }
 }

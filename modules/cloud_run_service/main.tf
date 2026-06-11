@@ -13,6 +13,12 @@ resource "google_cloud_run_v2_service" "this" {
 
   deletion_protection = var.deletion_protection
 
+  # A imagem real e publicada pela esteira do data_ingestion; o Terraform NAO
+  # deve reverter para o placeholder a cada apply.
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
+
   template {
     service_account = var.service_account_email
 
