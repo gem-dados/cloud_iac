@@ -28,13 +28,19 @@ for P in gem-dados-lake-stg gem-dados-lake-prd; do
 done
 ```
 
-## Aplicar (em 2 etapas — o PAT entra a mao)
+## Aplicar
 
-A conexao 2nd gen so valida se o secret do PAT ja tiver uma versao. Por isso:
+Este config serve aos DOIS projetos (stg e prd). Para os states nao se
+misturarem, usamos um **workspace por ambiente** (state local isolado em
+`terraform.tfstate.d/<workspace>/`). A conexao 2nd gen so valida se o secret
+do PAT ja tiver uma versao — por isso o apply do secret vem antes.
 
 ```bash
 cd bootstrap
 terraform init
+
+# ======================= STAGING =======================
+terraform workspace new stg     # (ou: terraform workspace select stg)
 
 # 1) Cria so o secret (ainda sem o PAT dentro)
 terraform apply -var-file=stg.tfvars \
@@ -50,11 +56,21 @@ printf '%s' 'SEU_PAT_DO_GITHUB' | \
 # 4) Aplica o resto
 terraform apply -var-file=stg.tfvars
 
-# Repita para prd com prd.tfvars
+# ======================= PRODUCAO ======================
+terraform workspace new prd     # (ou: terraform workspace select prd)
+
+terraform apply -var-file=prd.tfvars \
+  -target=google_secret_manager_secret.github_oauth
+printf '%s' 'SEU_PAT_DO_GITHUB' | \
+  gcloud secrets versions add github-oauth-token \
+  --project=gem-dados-lake-prd --data-file=-
+# edite prd.tfvars: github_app_installation_id = "<id real>"
+terraform apply -var-file=prd.tfvars
 ```
 
-> O `terraform.tfstate` do bootstrap fica **local**. Guarde-o num cofre
-> (1Password, etc.). **Nunca** commite — o `.gitignore` ja bloqueia `*.tfstate`.
+> Os states do bootstrap ficam **locais** (`terraform.tfstate.d/`). Guarde-os
+> num cofre (1Password, etc.). **Nunca** commite — o `.gitignore` ja bloqueia
+> `*.tfstate` e o diretorio `.terraform/`.
 
 ## O que e criado
 

@@ -40,3 +40,6 @@ GEMINI.md
 .cursorrules
 .windsurfrules
 .aider*
+
+# workspaces locais (bootstrap)
+terraform.tfstate.d/
