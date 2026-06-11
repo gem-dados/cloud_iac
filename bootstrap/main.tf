@@ -47,6 +47,7 @@ locals {
     "roles/secretmanager.admin",
     "roles/dataform.admin",
     "roles/cloudbuild.builds.editor",
+    "roles/cloudbuild.connectionAdmin",
     "roles/logging.logWriter",
   ]
 }

@@ -192,7 +192,7 @@ module "dataform" {
   ]
 }
 
-# Permissoes do service agent do Dataform: ler o secret do git + rodar no BigQuery.
+# O service agent do Dataform precisa ler o secret do git (PAT) para sincronizar.
 resource "google_secret_manager_secret_iam_member" "dataform_git" {
   project   = var.project_id
   secret_id = "github-oauth-token"
@@ -200,42 +200,40 @@ resource "google_secret_manager_secret_iam_member" "dataform_git" {
   member    = local.dataform_sa
 }
 
-resource "google_project_iam_member" "dataform_bq_data" {
+# SA dedicada que EXECUTA os workflows do Dataform no BigQuery (menor privilegio).
+resource "google_service_account" "dataform_runner" {
+  project      = var.project_id
+  account_id   = "dataform-runner"
+  display_name = "Dataform workflow runner"
+
+  depends_on = [module.baseline]
+}
+
+resource "google_project_iam_member" "dataform_runner_bq_data" {
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
-  member  = local.dataform_sa
+  member  = "serviceAccount:${google_service_account.dataform_runner.email}"
 }
 
-resource "google_project_iam_member" "dataform_bq_jobs" {
+resource "google_project_iam_member" "dataform_runner_bq_jobs" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
-  member  = local.dataform_sa
+  member  = "serviceAccount:${google_service_account.dataform_runner.email}"
 }
 
-# Agendamento do Dataform: compila a branch do ambiente e executa diariamente.
-resource "google_dataform_repository_release_config" "scheduled" {
-  provider = google-beta
-
-  project       = var.project_id
-  region        = var.region
-  repository    = module.dataform.name
-  name          = "scheduled"
-  git_commitish = local.deploy_branch_name
-  cron_schedule = "0 6 * * *"
-  time_zone     = "America/Sao_Paulo"
+# O service agent do Dataform precisa poder rodar workflows COMO o runner (strict actAs).
+resource "google_service_account_iam_member" "dataform_agent_actas" {
+  service_account_id = google_service_account.dataform_runner.id
+  role               = "roles/iam.serviceAccountUser"
+  member             = local.dataform_sa
 }
 
-resource "google_dataform_repository_workflow_config" "daily" {
-  provider = google-beta
-
-  project        = var.project_id
-  region         = var.region
-  repository     = module.dataform.name
-  name           = "daily"
-  release_config = google_dataform_repository_release_config.scheduled.id
-  cron_schedule  = "0 7 * * *"
-  time_zone      = "America/Sao_Paulo"
-}
+# NOTA (fase 2 — agendamento de EXECUCAO do Dataform):
+# O google_dataform_repository_workflow_config exige um service_account (strict
+# actAs), mas o provider google-beta 6.50 NAO expoe esse argumento. Por isso o
+# release_config/workflow_config NAO sao geridos aqui ainda. A SA `dataform-runner`
+# e o actAs ja estao prontos para quando o provider suportar (ou via Cloud
+# Scheduler -> Dataform API). Por ora, execucao roda pelo console/CLI do Dataform.
 
 # ---------------------------------------------------------------------------
 # 8) Esteira do data_ingestion (app): build da imagem -> push AR -> deploy
