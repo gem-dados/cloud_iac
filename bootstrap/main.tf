@@ -63,14 +63,11 @@ resource "google_project_service" "bootstrap" {
   disable_on_destroy = false
 }
 
-# Garante que o service agent do Cloud Build exista (necessario para a conexao
-# 2nd gen acessar o secret do PAT).
-resource "google_project_service_identity" "cloudbuild" {
-  provider = google-beta
-  project  = var.project_id
-  service  = "cloudbuild.googleapis.com"
-
-  depends_on = [google_project_service.bootstrap]
+locals {
+  # Service agent (P4SA) do Cloud Build — e ELE que a conexao 2nd gen usa para
+  # ler o secret do PAT. NAO confundir com a SA legada de build
+  # (<num>@cloudbuild.gserviceaccount.com), que e outra coisa.
+  cloudbuild_p4sa = "service-${data.google_project.this.number}@gcp-sa-cloudbuild.iam.gserviceaccount.com"
 }
 
 # --- State bucket -----------------------------------------------------------
@@ -128,12 +125,14 @@ resource "google_secret_manager_secret" "github_oauth" {
   depends_on = [google_project_service.bootstrap]
 }
 
-# O service agent do Cloud Build precisa ler o secret do PAT.
+# O service agent (P4SA) do Cloud Build precisa ler o secret do PAT.
 resource "google_secret_manager_secret_iam_member" "cloudbuild_access" {
   project   = var.project_id
   secret_id = google_secret_manager_secret.github_oauth.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_project_service_identity.cloudbuild.email}"
+  member    = "serviceAccount:${local.cloudbuild_p4sa}"
+
+  depends_on = [google_project_service.bootstrap]
 }
 
 # --- Conexao Cloud Build 2nd gen + repo ------------------------------------
