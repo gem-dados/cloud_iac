@@ -1,0 +1,42 @@
+# ===== Terraform =====
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl.bak
+tfplan
+*.tfplan
+
+# ===== Segredos / credenciais (NUNCA commitar) =====
+*.tfvars.secret
+*.auto.tfvars
+secrets.tfvars
+*-key.json
+*_key.json
+*.pem
+*.p12
+.env
+.env.*
+
+# ===== SO / editor =====
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ===== Assistentes de IA (instrucoes locais — nao versionar) =====
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+AGENT.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*

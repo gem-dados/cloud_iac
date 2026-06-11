@@ -1,0 +1,13 @@
+# =============================================================================
+# artifact_registry — repositorio Docker para as imagens do data_ingestion
+# =============================================================================
+
+resource "google_artifact_registry_repository" "this" {
+  project       = var.project_id
+  location      = var.location
+  repository_id = var.repository_id
+  format        = "DOCKER"
+  description   = var.description
+
+  labels = var.labels
+}

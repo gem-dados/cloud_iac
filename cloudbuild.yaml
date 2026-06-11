@@ -1,0 +1,57 @@
+# =============================================================================
+# Esteira de APPLY do IaC (roda no push da branch do ambiente).
+#   stg: push em 'stg'  -> _ENV=stg  -> aplica em gem-dados-lake-stg
+#   prd: push em 'main' -> _ENV=prd  -> aplica em gem-dados-lake-prd
+# A SA usada e a terraform-ci@<project> (definida no trigger pelo bootstrap).
+# =============================================================================
+substitutions:
+  _ENV: stg
+  _TF_VERSION: "1.10"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  env:
+    - "TF_IN_AUTOMATION=true"
+
+steps:
+  # 1) Guardrail: bloqueia segredo commitado antes de qualquer coisa.
+  - id: gitleaks
+    name: zricethezav/gitleaks:latest
+    args: ["detect", "--source=.", "--no-banner", "--redact", "--verbose"]
+
+  # 2) fmt + validate
+  - id: validate
+    name: hashicorp/terraform:$_TF_VERSION
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -e
+        terraform fmt -check -recursive
+        cd envs/$_ENV
+        terraform init -input=false
+        terraform validate
+
+  # 3) plan
+  - id: plan
+    name: hashicorp/terraform:$_TF_VERSION
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -e
+        cd envs/$_ENV
+        terraform init -input=false
+        terraform plan -input=false -out=tfplan
+
+  # 4) apply (so chega aqui via merge na branch do ambiente)
+  - id: apply
+    name: hashicorp/terraform:$_TF_VERSION
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -e
+        cd envs/$_ENV
+        terraform init -input=false
+        terraform apply -input=false -auto-approve tfplan

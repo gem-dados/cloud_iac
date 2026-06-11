@@ -1,0 +1,31 @@
+# Config do gitleaks (usado no pre-commit e na esteira).
+# Estende o conjunto default de regras e adiciona alertas focados em GCP.
+title = "gem-dados gitleaks"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "gcp-service-account-key"
+description = "Chave JSON de Service Account do GCP (NUNCA commitar — use Workload Identity)"
+regex = '''"type":\s*"service_account"'''
+tags = ["gcp", "key"]
+
+[[rules]]
+id = "gcp-private-key-block"
+description = "Bloco de private key dentro de JSON"
+regex = '''-----BEGIN (RSA |EC )?PRIVATE KEY-----'''
+tags = ["key"]
+
+# Permite exemplos/placeholders explicitos sem disparar falso-positivo.
+[allowlist]
+description = "Placeholders e exemplos"
+regexes = [
+  '''EXAMPLE''',
+  '''CHANGEME''',
+  '''your-.*-here''',
+]
+paths = [
+  '''README\.md''',
+  '''.*\.md''',
+]
