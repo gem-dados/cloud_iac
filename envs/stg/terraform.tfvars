@@ -9,7 +9,3 @@ region       = "us-central1"
 bq_location  = "US"
 github_owner = "gem-dados"
 org_id       = "809669352691"
-
-# TEMPORARIO: desligado ate o state org/ criar a tag 'environment'.
-# Religar para true depois de rodar o org/. Ver org/README.md.
-manage_environment_tag = false
