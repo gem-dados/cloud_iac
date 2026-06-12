@@ -58,6 +58,28 @@ APIs, BigQuery, buckets, Cloud Run, Artifact Registry e Dataform.
 
 ---
 
+## As três esteiras (todas branch-por-ambiente: `stg`→stg, `main`→prd)
+
+| Esteira | Repo | Dispara em | Faz |
+|---|---|---|---|
+| **IaC** | `cloud_iac` | push na branch | `terraform apply` do `envs/<env>` (este repo) |
+| **App** | `data_ingestion` | push na branch | build imagem → Artifact Registry → deploy Cloud Run |
+| **Dataform** | `data_models` | **Cloud Scheduler** (cron diário) | Workflow compila o repo → executa no BigQuery como `dataform-runner` |
+
+- As esteiras de **App** e **Dataform** são **definidas aqui** (no `cloud_iac`):
+  o trigger do `data_ingestion` e a orquestração do Dataform (Cloud Scheduler +
+  Cloud Workflows) ficam em `envs/<env>/main.tf`. O código de cada uma vive no
+  seu repo (`data_ingestion`, `data_models`).
+- **Dataform — por que Scheduler+Workflows e não o agendador nativo:** os repos
+  Dataform têm `strictActAsChecks` ligado (padrão seguro), o que exige uma SA
+  de execução explícita (`dataform-runner`) e bloqueia o autorelease nativo.
+  O provider Terraform não expõe esse campo, então usamos o padrão **GCP-nativo
+  recomendado pela Google**: Cloud Scheduler → Cloud Workflows → Dataform API.
+- **Cloud Run** tem `ignore_changes` na imagem: o Terraform cria o serviço, mas
+  quem publica a imagem real é a esteira de App (sem os dois brigarem).
+
+---
+
 ## Estrutura
 
 ```
@@ -73,9 +95,11 @@ cloud_iac/
 │   ├── bigquery_dataset/      # camadas raw/staging/marts
 │   ├── cloud_run_service/     # serviço Cloud Run (SA dedicada + secrets)
 │   ├── artifact_registry/     # repo Docker
-│   ├── dataform_repository/   # repo Dataform
+│   ├── dataform_repository/   # repo Dataform (git-linkado)
+│   ├── dataform_orchestration/# Scheduler + Workflows → Dataform API (agendamento)
+│   ├── cloudbuild_connection/ # conexão 2nd gen + repo (GitHub App)
 │   └── cloudbuild_trigger/    # wrapper de trigger
-├── envs/
+├── envs/                      # amarra os módulos + esteiras de app/dataform
 │   ├── stg/                   # gem-dados-lake-stg
 │   └── prd/                   # gem-dados-lake-prd
 ├── cloudbuild.yaml            # esteira de APPLY (push na branch do env)
@@ -95,17 +119,12 @@ cloud_iac/
 2. **Conectar** o repo ao Cloud Build de cada projeto via **2nd gen**
    (host connection + GitHub App). O bootstrap cria a conexao/repo/triggers;
    você só instala o GitHub App e gera o PAT (ver `bootstrap/README.md`).
-3. **Bootstrap**:
-   ```bash
-   cd bootstrap
-   terraform init
-   terraform apply -var-file=stg.tfvars
-   terraform apply -var-file=prd.tfvars
-   ```
-4. **Org** (tag de governança `environment`, admin de org — ver [org/README.md](./org/README.md)):
-   ```bash
-   cd org && terraform init && terraform apply
-   ```
+3. **Bootstrap** de cada ambiente — usa **um workspace por ambiente** (state
+   local isolado) e o PAT entra à mão no Secret Manager. Passo a passo completo
+   em [bootstrap/README.md](./bootstrap/README.md).
+4. **Org** (tag de governança `environment`) — roda **depois dos dois
+   bootstraps** (state no bucket do prd; concede `tagUser` às duas SAs). Precisa
+   de admin de organização. Ver [org/README.md](./org/README.md).
 5. **Branch protection** em `main` e `stg` (ver [SECURITY.md](./SECURITY.md)).
 
 A partir daqui, ninguém roda `apply` à mão — a esteira faz tudo.
