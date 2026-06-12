@@ -1,0 +1,30 @@
+# Orquestracao Dataform (padrao GCP-nativo): compila o repo e executa o
+# workflow invocation rodando como a SA custom (runner). Gerado por Terraform.
+# Obs: expressoes do Cloud Workflows usam doble-dollar para escapar o templatefile.
+main:
+  steps:
+    - init:
+        assign:
+          - repository: ${repository}
+    - compile:
+        call: http.post
+        args:
+          url: $${"https://dataform.googleapis.com/v1beta1/" + repository + "/compilationResults"}
+          auth:
+            type: OAuth2
+          body:
+            gitCommitish: ${git_branch}
+        result: compilation
+    - invoke:
+        call: http.post
+        args:
+          url: $${"https://dataform.googleapis.com/v1beta1/" + repository + "/workflowInvocations"}
+          auth:
+            type: OAuth2
+          body:
+            compilationResult: $${compilation.body.name}
+            invocationConfig:
+              serviceAccount: ${runner_sa}
+        result: invocation
+    - done:
+        return: $${invocation.body.name}

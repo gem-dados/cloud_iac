@@ -228,12 +228,24 @@ resource "google_service_account_iam_member" "dataform_agent_actas" {
   member             = local.dataform_sa
 }
 
-# NOTA (fase 2 — agendamento de EXECUCAO do Dataform):
-# O google_dataform_repository_workflow_config exige um service_account (strict
-# actAs), mas o provider google-beta 6.50 NAO expoe esse argumento. Por isso o
-# release_config/workflow_config NAO sao geridos aqui ainda. A SA `dataform-runner`
-# e o actAs ja estao prontos para quando o provider suportar (ou via Cloud
-# Scheduler -> Dataform API). Por ora, execucao roda pelo console/CLI do Dataform.
+# Agendamento GCP-nativo do Dataform (Cloud Scheduler -> Workflows -> Dataform
+# API), rodando como a SA dataform-runner. Padrao recomendado pela Google para
+# repos com strictActAsChecks (a SA default nao pode executar workflows).
+module "dataform_orchestration" {
+  source = "../../modules/dataform_orchestration"
+
+  project_id                   = var.project_id
+  region                       = var.region
+  env                          = var.env
+  repository_name              = module.dataform.name
+  git_branch                   = local.deploy_branch_name
+  runner_service_account_email = google_service_account.dataform_runner.email
+  runner_service_account_id    = google_service_account.dataform_runner.id
+  cron_schedule                = "0 7 * * *"
+  time_zone                    = "America/Sao_Paulo"
+
+  depends_on = [module.baseline]
+}
 
 # ---------------------------------------------------------------------------
 # 8) Esteira do data_ingestion (app): build da imagem -> push AR -> deploy

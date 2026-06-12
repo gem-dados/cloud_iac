@@ -35,6 +35,9 @@ variable "activate_apis" {
     "storage.googleapis.com",
     "secretmanager.googleapis.com",
     "dataform.googleapis.com",
+    "workflows.googleapis.com",
+    "workflowexecutions.googleapis.com",
+    "cloudscheduler.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
   ]
