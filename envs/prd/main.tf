@@ -246,6 +246,7 @@ module "dataform_orchestration" {
   env                          = var.env
   repository_name              = module.dataform.name
   git_branch                   = local.deploy_branch_name
+  default_database             = var.project_id
   runner_service_account_email = google_service_account.dataform_runner.email
   runner_service_account_id    = google_service_account.dataform_runner.id
   cron_schedule                = "0 7 * * *"

@@ -9,9 +9,10 @@ locals {
   repository = "projects/${var.project_id}/locations/${var.region}/repositories/${var.repository_name}"
 
   workflow_source = templatefile("${path.module}/workflow.yaml.tftpl", {
-    repository = local.repository
-    git_branch = var.git_branch
-    runner_sa  = var.runner_service_account_email
+    repository       = local.repository
+    git_branch       = var.git_branch
+    runner_sa        = var.runner_service_account_email
+    default_database = var.default_database
   })
 }
 

@@ -23,6 +23,11 @@ variable "git_branch" {
   type        = string
 }
 
+variable "default_database" {
+  description = "Projeto GCP onde o Dataform materializa (override de compilacao por ambiente)."
+  type        = string
+}
+
 variable "runner_service_account_email" {
   description = "E-mail da SA que EXECUTA o workflow no BigQuery (dataform-runner)."
   type        = string

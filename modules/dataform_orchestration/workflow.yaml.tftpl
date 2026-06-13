@@ -14,6 +14,10 @@ main:
             type: OAuth2
           body:
             gitCommitish: ${git_branch}
+            # Override por ambiente: compila contra o projeto do ambiente
+            # (o defaultProject do workflow_settings.yaml e so fallback de DEV).
+            codeCompilationConfig:
+              defaultDatabase: ${default_database}
         result: compilation
     - invoke:
         call: http.post
