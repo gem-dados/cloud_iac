@@ -221,10 +221,17 @@ resource "google_project_iam_member" "dataform_runner_bq_jobs" {
   member  = "serviceAccount:${google_service_account.dataform_runner.email}"
 }
 
-# O service agent do Dataform precisa poder rodar workflows COMO o runner (strict actAs).
+# O service agent do Dataform precisa IMPERSONAR a runner para executar os
+# workflows (strict actAs). Exige serviceAccountUser (actAs) E tokenCreator
+# (gerar tokens) — sem o tokenCreator a execucao falha com permission denied.
 resource "google_service_account_iam_member" "dataform_agent_actas" {
+  for_each = toset([
+    "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountTokenCreator",
+  ])
+
   service_account_id = google_service_account.dataform_runner.id
-  role               = "roles/iam.serviceAccountUser"
+  role               = each.value
   member             = local.dataform_sa
 }
 
