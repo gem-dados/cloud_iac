@@ -33,9 +33,15 @@ locals {
     "storage.googleapis.com",
   ]
 
-  # Papeis da SA que aplica IaC. Curados (sem roles/owner) como exercicio de
-  # menor privilegio. Adicione papeis aqui conforme novos recursos surgirem.
+  # Papeis da SA que aplica IaC.
+  #
+  # roles/editor cobre o CREATE/UPDATE/DELETE da maioria dos servicos GCP — entao
+  # servicos novos "so criar" funcionam de primeira (sem caca ao papel). NAO e um
+  # upgrade real de privilegio: a SA ja tem projectIamAdmin (pode se auto-conceder
+  # qualquer papel). Os *.admin abaixo ficam para os casos que o editor NAO cobre:
+  # setIamPolicy em recurso (bucket/secret/SA), conexoes Cloud Build 2nd gen, etc.
   terraform_sa_roles = [
+    "roles/editor",
     "roles/serviceusage.serviceUsageAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/iam.serviceAccountAdmin",
@@ -48,6 +54,8 @@ locals {
     "roles/dataform.admin",
     "roles/cloudbuild.builds.editor",
     "roles/cloudbuild.connectionAdmin",
+    "roles/workflows.admin",
+    "roles/cloudscheduler.admin",
     "roles/logging.logWriter",
   ]
 }
