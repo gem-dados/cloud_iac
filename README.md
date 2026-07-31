@@ -64,12 +64,19 @@ APIs, BigQuery, buckets, Cloud Run, Artifact Registry e Dataform.
 |---|---|---|---|
 | **IaC** | `cloud_iac` | push na branch | `terraform apply` do `envs/<env>` (este repo) |
 | **App** | `data_ingestion` | push na branch | build imagem → Artifact Registry → deploy Cloud Run |
-| **Dataform** | `data_models` | **Cloud Scheduler** (cron diário) | Workflow compila o repo → executa no BigQuery como `dataform-runner` |
+| **Dataform** | `data_models` | **push na branch** (imediato) + **Cloud Scheduler** (cron diário, backstop) | Cloud Build dispara o Workflow → compila o repo → executa no BigQuery como `dataform-runner` |
 
 - As esteiras de **App** e **Dataform** são **definidas aqui** (no `cloud_iac`):
-  o trigger do `data_ingestion` e a orquestração do Dataform (Cloud Scheduler +
-  Cloud Workflows) ficam em `envs/<env>/main.tf`. O código de cada uma vive no
-  seu repo (`data_ingestion`, `data_models`).
+  o trigger do `data_ingestion` e o do `data_models` (Cloud Build → Workflow),
+  além da orquestração agendada do Dataform (Cloud Scheduler + Cloud Workflows),
+  ficam em `envs/<env>/main.tf`. O código de cada uma vive no seu repo
+  (`data_ingestion`, `data_models`).
+- **Dataform — deploy no push (imediato):** um Cloud Build trigger no push da
+  branch do ambiente aciona o mesmo Cloud Workflow `dataform-<env>` (via
+  `gcloud workflows run`), materializando na hora em vez de esperar o cron. A SA
+  `terraform-ci` que roda o trigger recebe `roles/workflows.invoker`; o Workflow
+  segue executando como a SA orquestradora → `dataform-runner`. O Cloud Scheduler
+  continua como **backstop diário**.
 - **Dataform — por que Scheduler+Workflows e não o agendador nativo:** os repos
   Dataform têm `strictActAsChecks` ligado (padrão seguro), o que exige uma SA
   de execução explícita (`dataform-runner`) e bloqueia o autorelease nativo.
