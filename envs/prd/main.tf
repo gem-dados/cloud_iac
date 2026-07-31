@@ -288,3 +288,46 @@ resource "google_cloudbuild_trigger" "ingestion_deploy" {
     _REGION = var.region
   }
 }
+
+# ---------------------------------------------------------------------------
+# 9) Esteira do data_models (Dataform): push na branch -> Cloud Build dispara
+#    o Cloud Workflow dataform-<env> (deploy imediato, na hora do merge).
+#    Espelha a esteira do data_ingestion e reusa a conexao 2nd gen do bootstrap.
+#    O Cloud Scheduler (modulo dataform_orchestration) segue como backstop diario.
+# ---------------------------------------------------------------------------
+resource "google_cloudbuildv2_repository" "data_models" {
+  project           = var.project_id
+  location          = var.region
+  name              = "data_models"
+  parent_connection = local.connection_id
+  remote_uri        = "https://github.com/gem-dados/data_models.git"
+}
+
+resource "google_cloudbuild_trigger" "dataform_deploy" {
+  project         = var.project_id
+  location        = var.region
+  name            = "dataform-${var.env}-deploy"
+  description     = "Push na branch -> dispara o Workflow do Dataform (${var.env})."
+  filename        = "cloudbuild.yaml"
+  service_account = local.cicd_sa_id
+
+  repository_event_config {
+    repository = google_cloudbuildv2_repository.data_models.id
+    push {
+      branch = local.deploy_branch_regex
+    }
+  }
+
+  substitutions = {
+    _ENV    = var.env
+    _REGION = var.region
+  }
+}
+
+# A SA terraform-ci (que roda o trigger) precisa acionar o Cloud Workflow
+# dataform-<env>. So invoca; o workflow executa como a SA orquestradora.
+resource "google_project_iam_member" "cicd_workflows_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:terraform-ci@${var.project_id}.iam.gserviceaccount.com"
+}
