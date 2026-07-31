@@ -105,6 +105,12 @@ resource "google_service_account" "terraform" {
   depends_on = [google_project_service.bootstrap]
 }
 
+# Risco aceito: a SA da esteira (terraform-ci) precisa de serviceAccountUser a
+# nivel de projeto para atuar (actAs) como as SAs que o proprio Terraform cria
+# e gerencia (ingestion, dataform-runner, etc.). Granular por-SA exigiria um
+# binding para cada SA futura — inviavel para uma SA de CI que provisiona novas
+# SAs. Escopo limitado ao projeto do ambiente (nao organizacao).
+#tfsec:ignore:google-iam-no-project-level-service-account-impersonation
 resource "google_project_iam_member" "terraform_sa" {
   for_each = toset(local.terraform_sa_roles)
 
