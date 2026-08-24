@@ -49,3 +49,15 @@ variable "time_zone" {
   type        = string
   default     = "America/Sao_Paulo"
 }
+
+variable "poll_interval_seconds" {
+  description = "Intervalo entre consultas ao estado da workflow invocation."
+  type        = number
+  default     = 20
+}
+
+variable "max_wait_seconds" {
+  description = "Tempo maximo aguardando a invocation terminar antes de falhar por timeout."
+  type        = number
+  default     = 1800
+}
