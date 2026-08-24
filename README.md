@@ -168,6 +168,78 @@ git push -u origin feat/minha-mudanca
 
 ---
 
+## Camadas do BigQuery e quem enxerga o quê
+
+O lake tem quatro datasets, e o acesso é concedido **por dataset**, nunca no
+nível do projeto:
+
+| Camada | Conteúdo | `lake_readers` (time de dados) | `bi_principals` (BI) |
+|---|---|---|---|
+| `raw` | dado cru da ingestão, ainda com PII | lê | **não** |
+| `staging` | intermediário, não é contrato com ninguém | lê | **não** |
+| `secure` | dado sensível/identificável (o cofre de anonimização) | lê | **não** |
+| `marts` | modelos finais | lê | lê |
+
+São **dois públicos diferentes**, e a distinção é o coração do desenho:
+
+- **`lake_readers`** — quem *constrói* o lake. Precisa investigar do `raw` ao
+  `mart` para debugar uma transformação, então lê todas as camadas. Hoje:
+  `group:data_team@gemdados.net`.
+- **`bi_principals`** — quem *consome* o resultado (Looker Studio, analistas).
+  Lê só `marts`, que é a única superfície pública do lake.
+
+Confundir os dois é o erro que essa separação existe para evitar: dar acesso de
+construtor a quem só consome espalha PII sem necessidade.
+
+### Bloquear é não conceder
+
+Não existe regra de negação aqui. O BI recebe `roles/bigquery.dataViewer`
+apenas em `marts`, e mais nada — as outras camadas ficam invisíveis porque
+ninguém deu acesso, não porque alguém proibiu. É mais simples de auditar: para
+saber quem lê `raw`, basta olhar o IAM de `raw`.
+
+Isso tem **uma condição que não pode ser quebrada**:
+
+> Nunca conceda papel de BigQuery a uma pessoa ou grupo no nível do **projeto**.
+
+Um `roles/bigquery.dataViewer` no projeto enxerga *todos* os datasets e anula
+o isolamento inteiro, sem aviso e sem aparecer no IAM do dataset. Se alguém
+pedir acesso "ao BigQuery", a resposta é adicionar em `bi_principals`, não um
+grant no projeto.
+
+### Como dar acesso a alguém
+
+Edite o `terraform.tfvars` do ambiente. Escolha a lista pelo papel da pessoa:
+
+```hcl
+lake_readers  = ["group:data_team@gemdados.net"]  # constrói o lake: lê tudo
+bi_principals = ["group:bi@gemdados.net"]         # consome: lê só marts
+```
+
+Prefira **grupo** a usuário solto: entrada e saída de pessoa vira gestão no
+Google Workspace, sem precisar de PR de Terraform para cada uma.
+
+### Por que também existe `jobUser` no projeto
+
+`dataViewer` por dataset diz *o que* você pode ler. Mas rodar qualquer query
+exige `roles/bigquery.jobUser` no **projeto** — sem ele o BigQuery devolve
+`bigquery.jobs.create denied` e a pessoa não consegue nem começar.
+
+Isso não fura o isolamento: `jobUser` não dá acesso a dado nenhum, só autoriza
+criar o job. O que a pessoa consegue ler continua definido dataset a dataset.
+A combinação (`jobUser` amplo + `dataViewer` estreito) é o menor privilégio que
+de fato funciona no BigQuery.
+
+### E as service accounts?
+
+`data-ingestion` e `dataform-runner` têm `roles/bigquery.dataEditor` no
+**projeto** — precisam escrever em várias camadas. Elas são identidades de
+máquina da própria esteira, não gente. Estreitar isso para grants por dataset
+é uma melhoria válida de defesa em profundidade, mas não é o que a separação
+BI ↔ lake resolve.
+
+---
+
 ## Segurança
 
 Resumo em [SECURITY.md](./SECURITY.md). Pontos-chave: sem segredo no git

@@ -90,6 +90,7 @@ module "ds_raw" {
   description                = "Camada RAW — dados crus da ingestao."
   delete_contents_on_destroy = var.env == "stg"
   labels                     = local.labels
+  viewers                    = var.lake_readers
 
   depends_on = [module.baseline]
 }
@@ -102,10 +103,13 @@ module "ds_staging" {
   description                = "Camada STAGING — transformacoes do Dataform."
   delete_contents_on_destroy = var.env == "stg"
   labels                     = local.labels
+  viewers                    = var.lake_readers
 
   depends_on = [module.baseline]
 }
 
+// MARTS e a UNICA camada exposta ao BI (bi_principals). O time de dados
+// (lake_readers) le esta e as outras. Ver comentario da camada SECURE abaixo.
 module "ds_marts" {
   source                     = "../../modules/bigquery_dataset"
   project_id                 = var.project_id
@@ -114,8 +118,57 @@ module "ds_marts" {
   description                = "Camada MARTS — modelos finais para consumo."
   delete_contents_on_destroy = var.env == "stg"
   labels                     = local.labels
+  viewers                    = concat(var.bi_principals, var.lake_readers)
 
   depends_on = [module.baseline]
+}
+
+# ---------------------------------------------------------------------------
+# Camada SECURE — dado sensivel/identificavel (o cofre de anonimizacao e o que
+# deve morar aqui).
+#
+# Existem DOIS publicos, e eles nao se confundem:
+#
+#   lake_readers  (time de dados) -> le TODAS as camadas. Sao quem constroi o
+#                                    lake e precisa investigar do raw ao mart.
+#   bi_principals (consumo/BI)    -> le SOMENTE marts. Nunca raw/staging/secure.
+#
+# Hoje lake_readers cobre as 4 camadas de proposito: o time precisa de acesso
+# amplo para trabalhar. bi_principals esta vazio e e o que sustenta a Task 3.5
+# — quando o BI entrar, ele entra so por marts, sem tocar nestes blocos.
+#
+# "Bloquear" o BI e por construcao, nao por regra de negacao: ele so recebe
+# grant em marts e em nenhum lugar mais. Ver README para o porque.
+#
+# delete_contents_on_destroy fica false ate em stg — de proposito. Um destroy
+# acidental numa camada de dado identificavel nao deve ser silencioso.
+# ---------------------------------------------------------------------------
+module "ds_secure" {
+  source                     = "../../modules/bigquery_dataset"
+  project_id                 = var.project_id
+  dataset_id                 = "secure"
+  location                   = var.bq_location
+  description                = "Camada SECURE — dado sensivel/identificavel. Nao exposta ao BI."
+  delete_contents_on_destroy = false
+  labels                     = local.labels
+  viewers                    = var.lake_readers
+
+  depends_on = [module.baseline]
+}
+
+# ---------------------------------------------------------------------------
+# Rodar query no BigQuery exige bigquery.jobUser no PROJETO — dataViewer por
+# dataset sozinho da "bigquery.jobs.create denied". jobUser NAO da acesso a
+# dado nenhum: so autoriza criar o job. O que a pessoa consegue ler continua
+# definido dataset a dataset. E por isso que esta combinacao (jobUser amplo +
+# dataViewer estreito) e o menor privilegio que de fato funciona.
+# ---------------------------------------------------------------------------
+resource "google_project_iam_member" "lake_readers_jobs" {
+  for_each = toset(concat(var.lake_readers, var.bi_principals))
+
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = each.value
 }
 
 # ---------------------------------------------------------------------------
