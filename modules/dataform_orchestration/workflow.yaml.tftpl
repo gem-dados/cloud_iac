@@ -1,11 +1,20 @@
-# Orquestracao Dataform (padrao GCP-nativo): compila o repo e executa o
-# workflow invocation rodando como a SA custom (runner). Gerado por Terraform.
+# Orquestracao Dataform (padrao GCP-nativo): compila o repo, executa o workflow
+# invocation rodando como a SA custom (runner) e AGUARDA o resultado real.
+# Gerado por Terraform.
+#
+# Por que o polling existe: criar o workflowInvocation e uma chamada ASSINCRONA.
+# Ela retorna na hora, antes de qualquer modelo rodar no BigQuery. Sem esperar o
+# estado final, o Workflow (e o Cloud Build que o dispara) reportava sucesso
+# mesmo com todos os modelos falhando — um "falso verde".
+#
 # Obs: expressoes do Cloud Workflows usam doble-dollar para escapar o templatefile.
 main:
   steps:
     - init:
         assign:
           - repository: ${repository}
+          - tentativas: 0
+          - max_tentativas: ${max_attempts}
     - compile:
         call: http.post
         args:
@@ -30,5 +39,46 @@ main:
             invocationConfig:
               serviceAccount: ${runner_sa}
         result: invocation
-    - done:
+
+    # ---- Espera ativa pelo estado final da invocation --------------------
+    # Estados possiveis: RUNNING, SUCCEEDED, CANCELLING, CANCELLED, FAILED.
+    # CANCELLING nao casa com nenhum switch e cai no proximo ciclo de polling,
+    # ate virar CANCELLED.
+    - espera:
+        call: sys.sleep
+        args:
+          seconds: ${poll_interval_seconds}
+    - consulta:
+        call: http.get
+        args:
+          url: $${"https://dataform.googleapis.com/v1beta1/" + invocation.body.name}
+          auth:
+            type: OAuth2
+        result: status
+    - avalia:
+        switch:
+          - condition: $${status.body.state == "SUCCEEDED"}
+            next: sucesso
+          - condition: $${status.body.state == "FAILED"}
+            next: falhou
+          - condition: $${status.body.state == "CANCELLED"}
+            next: falhou
+    - conta:
+        assign:
+          - tentativas: $${tentativas + 1}
+    - limite:
+        switch:
+          - condition: $${tentativas >= max_tentativas}
+            next: estourou
+        next: espera
+
+    - falhou:
+        raise:
+          message: $${"Dataform workflow invocation terminou em " + status.body.state}
+          invocation: $${invocation.body.name}
+    - estourou:
+        raise:
+          message: "Timeout aguardando a Dataform workflow invocation terminar."
+          invocation: $${invocation.body.name}
+    - sucesso:
         return: $${invocation.body.name}
