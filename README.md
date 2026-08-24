@@ -173,15 +173,23 @@ git push -u origin feat/minha-mudanca
 O lake tem quatro datasets, e o acesso é concedido **por dataset**, nunca no
 nível do projeto:
 
-| Camada | Conteúdo | Quem lê |
-|---|---|---|
-| `raw` | dado cru da ingestão, ainda com PII | só as SAs da esteira |
-| `staging` | intermediário, não é contrato com ninguém | só as SAs da esteira |
-| `secure` | dado sensível/identificável (o cofre de anonimização) | só as SAs da esteira |
-| `marts` | modelos finais | **BI** (via `bi_principals`) |
+| Camada | Conteúdo | `lake_readers` (time de dados) | `bi_principals` (BI) |
+|---|---|---|---|
+| `raw` | dado cru da ingestão, ainda com PII | lê | **não** |
+| `staging` | intermediário, não é contrato com ninguém | lê | **não** |
+| `secure` | dado sensível/identificável (o cofre de anonimização) | lê | **não** |
+| `marts` | modelos finais | lê | lê |
 
-`marts` é a única superfície pública do lake. Quem consome dado (Looker Studio,
-analistas) enxerga só ela.
+São **dois públicos diferentes**, e a distinção é o coração do desenho:
+
+- **`lake_readers`** — quem *constrói* o lake. Precisa investigar do `raw` ao
+  `mart` para debugar uma transformação, então lê todas as camadas. Hoje:
+  `group:data_team@gemdados.net`.
+- **`bi_principals`** — quem *consome* o resultado (Looker Studio, analistas).
+  Lê só `marts`, que é a única superfície pública do lake.
+
+Confundir os dois é o erro que essa separação existe para evitar: dar acesso de
+construtor a quem só consome espalha PII sem necessidade.
 
 ### Bloquear é não conceder
 
@@ -201,14 +209,26 @@ grant no projeto.
 
 ### Como dar acesso a alguém
 
-Edite `bi_principals` no `terraform.tfvars` do ambiente:
+Edite o `terraform.tfvars` do ambiente. Escolha a lista pelo papel da pessoa:
 
 ```hcl
-bi_principals = ["group:bi@gemdados.net"]
+lake_readers  = ["group:data_team@gemdados.net"]  # constrói o lake: lê tudo
+bi_principals = ["group:bi@gemdados.net"]         # consome: lê só marts
 ```
 
 Prefira **grupo** a usuário solto: entrada e saída de pessoa vira gestão no
 Google Workspace, sem precisar de PR de Terraform para cada uma.
+
+### Por que também existe `jobUser` no projeto
+
+`dataViewer` por dataset diz *o que* você pode ler. Mas rodar qualquer query
+exige `roles/bigquery.jobUser` no **projeto** — sem ele o BigQuery devolve
+`bigquery.jobs.create denied` e a pessoa não consegue nem começar.
+
+Isso não fura o isolamento: `jobUser` não dá acesso a dado nenhum, só autoriza
+criar o job. O que a pessoa consegue ler continua definido dataset a dataset.
+A combinação (`jobUser` amplo + `dataViewer` estreito) é o menor privilégio que
+de fato funciona no BigQuery.
 
 ### E as service accounts?
 

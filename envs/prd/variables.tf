@@ -52,3 +52,16 @@ variable "bi_principals" {
   type        = list(string)
   default     = []
 }
+
+variable "lake_readers" {
+  description = <<-EOT
+    Time de dados: le TODAS as camadas do lake (raw, staging, secure, marts).
+    Formato IAM, ex.: ["group:data_team@gemdados.net"].
+
+    Diferente de bi_principals, que le so marts. Sao publicos distintos:
+    quem CONSTROI o lake precisa investigar do raw ao mart; quem CONSOME
+    enxerga so o produto final.
+  EOT
+  type        = list(string)
+  default     = []
+}

@@ -9,3 +9,7 @@ region       = "us-central1"
 bq_location  = "US"
 github_owner = "gem-dados"
 org_id       = "809669352691"
+
+# Time de dados. Em prd fica VAZIO de proposito: producao so libera leitura
+# com decisao explicita. Para liberar, descomente a linha abaixo.
+# lake_readers = ["group:data_team@gemdados.net"]

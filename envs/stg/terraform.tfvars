@@ -9,3 +9,7 @@ region       = "us-central1"
 bq_location  = "US"
 github_owner = "gem-dados"
 org_id       = "809669352691"
+
+# Time de dados: le TODAS as camadas do lake (raw, staging, secure, marts).
+# Grupo do Workspace — entrada/saida de pessoa vira gestao la, sem PR aqui.
+lake_readers = ["group:data_team@gemdados.net"]
