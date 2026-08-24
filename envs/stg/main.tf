@@ -106,6 +106,7 @@ module "ds_staging" {
   depends_on = [module.baseline]
 }
 
+// MARTS e a UNICA camada exposta ao BI. Ver comentario da camada SECURE abaixo.
 module "ds_marts" {
   source                     = "../../modules/bigquery_dataset"
   project_id                 = var.project_id
@@ -113,6 +114,35 @@ module "ds_marts" {
   location                   = var.bq_location
   description                = "Camada MARTS — modelos finais para consumo."
   delete_contents_on_destroy = var.env == "stg"
+  labels                     = local.labels
+  viewers                    = var.bi_principals
+
+  depends_on = [module.baseline]
+}
+
+# ---------------------------------------------------------------------------
+# Camada SECURE — dado sensivel/identificavel (o cofre de anonimizacao e o que
+# deve morar aqui). Sem `viewers`: o BI NUNCA le esta camada.
+#
+# O modelo de acesso das 4 camadas:
+#   raw     -> so as SAs da esteira. Dado cru, ainda com PII.
+#   staging -> so as SAs da esteira. Intermediario, nao e contrato com ninguem.
+#   secure  -> so as SAs da esteira. Dado identificavel.
+#   marts   -> BI le. E a unica superficie publica do lake.
+#
+# "Bloquear" aqui e por construcao, nao por regra de negacao: o BI so recebe
+# grant em marts e em nenhum lugar mais. Ver README para o porque.
+#
+# delete_contents_on_destroy fica false ate em stg — de proposito. Um destroy
+# acidental numa camada de dado identificavel nao deve ser silencioso.
+# ---------------------------------------------------------------------------
+module "ds_secure" {
+  source                     = "../../modules/bigquery_dataset"
+  project_id                 = var.project_id
+  dataset_id                 = "secure"
+  location                   = var.bq_location
+  description                = "Camada SECURE — dado sensivel/identificavel. Nao exposta ao BI."
+  delete_contents_on_destroy = false
   labels                     = local.labels
 
   depends_on = [module.baseline]

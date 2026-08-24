@@ -168,6 +168,58 @@ git push -u origin feat/minha-mudanca
 
 ---
 
+## Camadas do BigQuery e quem enxerga o quê
+
+O lake tem quatro datasets, e o acesso é concedido **por dataset**, nunca no
+nível do projeto:
+
+| Camada | Conteúdo | Quem lê |
+|---|---|---|
+| `raw` | dado cru da ingestão, ainda com PII | só as SAs da esteira |
+| `staging` | intermediário, não é contrato com ninguém | só as SAs da esteira |
+| `secure` | dado sensível/identificável (o cofre de anonimização) | só as SAs da esteira |
+| `marts` | modelos finais | **BI** (via `bi_principals`) |
+
+`marts` é a única superfície pública do lake. Quem consome dado (Looker Studio,
+analistas) enxerga só ela.
+
+### Bloquear é não conceder
+
+Não existe regra de negação aqui. O BI recebe `roles/bigquery.dataViewer`
+apenas em `marts`, e mais nada — as outras camadas ficam invisíveis porque
+ninguém deu acesso, não porque alguém proibiu. É mais simples de auditar: para
+saber quem lê `raw`, basta olhar o IAM de `raw`.
+
+Isso tem **uma condição que não pode ser quebrada**:
+
+> Nunca conceda papel de BigQuery a uma pessoa ou grupo no nível do **projeto**.
+
+Um `roles/bigquery.dataViewer` no projeto enxerga *todos* os datasets e anula
+o isolamento inteiro, sem aviso e sem aparecer no IAM do dataset. Se alguém
+pedir acesso "ao BigQuery", a resposta é adicionar em `bi_principals`, não um
+grant no projeto.
+
+### Como dar acesso a alguém
+
+Edite `bi_principals` no `terraform.tfvars` do ambiente:
+
+```hcl
+bi_principals = ["group:bi@gemdados.net"]
+```
+
+Prefira **grupo** a usuário solto: entrada e saída de pessoa vira gestão no
+Google Workspace, sem precisar de PR de Terraform para cada uma.
+
+### E as service accounts?
+
+`data-ingestion` e `dataform-runner` têm `roles/bigquery.dataEditor` no
+**projeto** — precisam escrever em várias camadas. Elas são identidades de
+máquina da própria esteira, não gente. Estreitar isso para grants por dataset
+é uma melhoria válida de defesa em profundidade, mas não é o que a separação
+BI ↔ lake resolve.
+
+---
+
 ## Segurança
 
 Resumo em [SECURITY.md](./SECURITY.md). Pontos-chave: sem segredo no git

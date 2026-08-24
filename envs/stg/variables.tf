@@ -36,3 +36,19 @@ variable "manage_environment_tag" {
   type        = bool
   default     = true
 }
+
+variable "bi_principals" {
+  description = <<-EOT
+    Principals do BI (Looker Studio, analistas) que leem o lake.
+    Formato IAM, ex.: ["group:bi@gemdados.net"]. Preferir GRUPO a usuario solto:
+    entrada/saida de pessoa vira gestao no Workspace, sem PR de Terraform.
+
+    Estes principals recebem roles/bigquery.dataViewer SOMENTE no dataset marts.
+    NUNCA conceda papel de BigQuery a eles no nivel do projeto: isso enxerga
+    todos os datasets e anula o isolamento das camadas raw/staging/secure.
+
+    Vazio (default) = nenhum acesso concedido; a esteira nao quebra.
+  EOT
+  type        = list(string)
+  default     = []
+}

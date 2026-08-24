@@ -43,3 +43,13 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "viewers" {
+  description = <<-EOT
+    Principals com leitura (roles/bigquery.dataViewer) NESTE dataset.
+    Formato IAM completo, ex.: ["group:bi@gemdados.net", "user:fulano@gemdados.net"].
+    Vazio = ninguem alem de quem ja tem papel no nivel do projeto.
+  EOT
+  type        = list(string)
+  default     = []
+}
