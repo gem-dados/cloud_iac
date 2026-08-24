@@ -331,3 +331,50 @@ resource "google_project_iam_member" "cicd_workflows_invoker" {
   role    = "roles/workflows.invoker"
   member  = "serviceAccount:terraform-ci@${var.project_id}.iam.gserviceaccount.com"
 }
+
+# ---------------------------------------------------------------------------
+# 10) Esteiras de PR dos repos de app. NUNCA fazem deploy — so validam e
+#     barram o merge. Espelham o iac-<env>-plan-pr (criado no bootstrap).
+#
+#     branch_regex aqui e a branch de DESTINO do PR: no stg valida PRs para
+#     'stg', no prd valida PRs para 'main'. Marque estes checks como required
+#     no branch protection, senao a validacao existe mas da para mergear por
+#     cima dela.
+# ---------------------------------------------------------------------------
+module "ingestion_pr" {
+  source = "../../modules/cloudbuild_trigger"
+
+  project_id         = var.project_id
+  location           = var.region
+  repository_id      = google_cloudbuildv2_repository.data_ingestion.id
+  name               = "ingestion-${var.env}-pr"
+  description        = "Valida PRs do data_ingestion (gitleaks + ruff + pytest) para ${local.deploy_branch_name}."
+  event_type         = "pull_request"
+  branch_regex       = local.deploy_branch_regex
+  build_config_file  = "cloudbuild-pr.yaml"
+  service_account_id = local.cicd_sa_id
+
+  substitutions = {
+    _ENV    = var.env
+    _REGION = var.region
+  }
+}
+
+module "models_pr" {
+  source = "../../modules/cloudbuild_trigger"
+
+  project_id         = var.project_id
+  location           = var.region
+  repository_id      = google_cloudbuildv2_repository.data_models.id
+  name               = "models-${var.env}-pr"
+  description        = "Valida PRs do data_models (gitleaks + dataform compile) para ${local.deploy_branch_name}."
+  event_type         = "pull_request"
+  branch_regex       = local.deploy_branch_regex
+  build_config_file  = "cloudbuild-pr.yaml"
+  service_account_id = local.cicd_sa_id
+
+  substitutions = {
+    _ENV    = var.env
+    _REGION = var.region
+  }
+}
