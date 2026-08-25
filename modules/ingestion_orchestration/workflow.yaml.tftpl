@@ -1,0 +1,61 @@
+# Orquestracao da Ingestao DataCamp (Cloud Scheduler -> Cloud Workflows -> Cloud Run -> Dataform).
+# Executa os passos da ingestao sequencialmente e, ao concluir com sucesso, dispara o Dataform.
+# Gerado por Terraform.
+
+main:
+  steps:
+    - init:
+        assign:
+          - service_uri: "${service_uri}"
+          - project_id: "${project_id}"
+          - region: "${region}"
+          - dataform_workflow: "${dataform_workflow}"
+
+    # 1) Ingestao do Drive para Parquet no GCS (sem estado local)
+    - step_ingest:
+        call: http.post
+        args:
+          url: $${service_uri + "/run/ingest"}
+          auth:
+            type: OIDC
+            audience: $${service_uri}
+          timeout: 600
+        result: ingest_res
+
+    # 2) Carga do Parquet do GCS para o BigQuery (raw.*)
+    - step_load_bq:
+        call: http.post
+        args:
+          url: $${service_uri + "/run/load_bq"}
+          auth:
+            type: OIDC
+            audience: $${service_uri}
+          timeout: 600
+        result: load_bq_res
+
+    # 3) Deduplicacao de membros e sincronizacao do cofre
+    - step_rotina_sem_duplicatas:
+        call: http.post
+        args:
+          url: $${service_uri + "/run/rotina_sem_duplicatas"}
+          auth:
+            type: OIDC
+            audience: $${service_uri}
+          timeout: 600
+        result: deduplicacao_res
+
+    # 4) Dispara a orquestracao do Dataform apos sucesso na ingestao
+    - step_trigger_dataform:
+        call: http.post
+        args:
+          url: $${"https://workflowexecutions.googleapis.com/v1/projects/" + project_id + "/locations/" + region + "/workflows/" + dataform_workflow + "/executions"}
+          auth:
+            type: OAuth2
+        result: dataform_res
+
+    - sucesso:
+        return:
+          ingest: $${ingest_res.body}
+          load_bq: $${load_bq_res.body}
+          rotina_sem_duplicatas: $${deduplicacao_res.body}
+          dataform_execution: $${dataform_res.body.name}
