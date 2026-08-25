@@ -5,7 +5,7 @@ output "workflow_id" {
 
 output "scheduler_job" {
   description = "Nome do job do Cloud Scheduler."
-  value       = google_cloud_scheduler_job.this.name
+  value       = try(google_cloud_scheduler_job.this[0].name, null)
 }
 
 output "orchestrator_sa" {
