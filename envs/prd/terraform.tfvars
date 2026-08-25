@@ -14,6 +14,9 @@ org_id       = "809669352691"
 # com decisao explicita. Para liberar, descomente a linha abaixo.
 # lake_readers = ["group:data_team@gemdados.net"]
 
+# ID da pasta do Google Drive (datasets_csv_brutos)
+google_drive_folder_id = "1RfxrbceHMx8W4jSlTsmq09KNa4eR7iCg"
+
 # ---------------------------------------------------------------------------
 # COMO DAR ACESSO A ALGUEM
 #

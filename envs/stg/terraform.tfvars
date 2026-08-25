@@ -14,6 +14,9 @@ org_id       = "809669352691"
 # Grupo do Workspace — entrada/saida de pessoa vira gestao la, sem PR aqui.
 lake_readers = ["group:data_team@gemdados.net"]
 
+# ID da pasta do Google Drive (datasets_csv_brutos)
+google_drive_folder_id = "1RfxrbceHMx8W4jSlTsmq09KNa4eR7iCg"
+
 # ---------------------------------------------------------------------------
 # COMO DAR ACESSO A ALGUEM
 #
