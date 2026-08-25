@@ -56,6 +56,7 @@ resource "google_workflows_workflow" "this" {
 }
 
 resource "google_cloud_scheduler_job" "this" {
+  count     = var.cron_schedule != "" ? 1 : 0
   project   = var.project_id
   region    = var.region
   name      = "dataform-${var.env}"

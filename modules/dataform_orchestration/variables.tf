@@ -39,9 +39,9 @@ variable "runner_service_account_id" {
 }
 
 variable "cron_schedule" {
-  description = "Agendamento (cron)."
+  description = "Agendamento (cron). Deixe vazio se disparado por outro workflow."
   type        = string
-  default     = "0 7 * * *"
+  default     = ""
 }
 
 variable "time_zone" {

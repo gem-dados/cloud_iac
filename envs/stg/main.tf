@@ -210,10 +210,11 @@ module "ingestion_service" {
   service_account_email = google_service_account.ingestion.email
 
   env = {
-    GCP_PROJECT = var.project_id
-    ENVIRONMENT = var.env
-    RAW_BUCKET  = module.bucket_raw.name
-    BQ_DATASET  = module.ds_raw.dataset_id
+    GCP_PROJECT            = var.project_id
+    ENVIRONMENT            = var.env
+    RAW_BUCKET             = module.bucket_raw.name
+    BQ_DATASET             = module.ds_raw.dataset_id
+    GOOGLE_DRIVE_FOLDER_ID = var.google_drive_folder_id
   }
 
   # Exemplo de segredo (crie o secret no Secret Manager / via esteira):
@@ -302,10 +303,29 @@ module "dataform_orchestration" {
   default_database             = var.project_id
   runner_service_account_email = google_service_account.dataform_runner.email
   runner_service_account_id    = google_service_account.dataform_runner.id
-  cron_schedule                = "0 7 * * *"
-  time_zone                    = "America/Sao_Paulo"
 
   depends_on = [module.baseline]
+}
+
+# Agendamento da ingestao (Cloud Scheduler -> Workflows -> Cloud Run data-ingestion)
+# Roda as 06:00 BRT, antes do Dataform (07:00 BRT).
+module "ingestion_orchestration" {
+  source = "../../modules/ingestion_orchestration"
+
+  project_id             = var.project_id
+  region                 = var.region
+  env                    = var.env
+  service_name           = module.ingestion_service.name
+  service_uri            = module.ingestion_service.uri
+  dataform_workflow_name = "dataform-${var.env}"
+  cron_schedule          = "0 6 * * *"
+  time_zone              = "America/Sao_Paulo"
+
+  depends_on = [
+    module.baseline,
+    module.ingestion_service,
+    module.dataform_orchestration,
+  ]
 }
 
 # ---------------------------------------------------------------------------

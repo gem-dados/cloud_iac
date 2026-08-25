@@ -65,3 +65,9 @@ variable "lake_readers" {
   type        = list(string)
   default     = []
 }
+
+variable "google_drive_folder_id" {
+  description = "ID da pasta no Google Drive contendo os CSVs de relatorios do DataCamp."
+  type        = string
+  default     = ""
+}

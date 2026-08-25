@@ -38,6 +38,7 @@ variable "activate_apis" {
     "workflows.googleapis.com",
     "workflowexecutions.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "drive.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
   ]
