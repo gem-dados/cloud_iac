@@ -59,6 +59,37 @@ resource "google_service_account" "ingestion" {
   depends_on = [module.baseline]
 }
 
+# Salt usado no hashing de anonimizacao de PII (crypto.gerar_user_id, no repo
+# data_ingestion). Gerado pelo Terraform para nunca ficar hardcoded/commitado
+# em texto plano.
+resource "random_password" "ingestion_salt" {
+  length  = 32
+  special = false
+}
+
+resource "google_secret_manager_secret" "ingestion_salt" {
+  project   = var.project_id
+  secret_id = "ingestion-salt"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [module.baseline]
+}
+
+resource "google_secret_manager_secret_version" "ingestion_salt" {
+  secret      = google_secret_manager_secret.ingestion_salt.id
+  secret_data = random_password.ingestion_salt.result
+}
+
+resource "google_secret_manager_secret_iam_member" "ingestion_salt" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.ingestion_salt.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.ingestion.email}"
+}
+
 # Permissoes minimas: escrever no lake (BigQuery + bucket raw).
 resource "google_project_iam_member" "ingestion_bq" {
   project = var.project_id
@@ -214,15 +245,18 @@ module "ingestion_service" {
     ENVIRONMENT            = var.env
     RAW_BUCKET             = module.bucket_raw.name
     BQ_DATASET             = module.ds_raw.dataset_id
+    BQ_RAW_DATASET         = module.ds_raw.dataset_id
     GOOGLE_DRIVE_FOLDER_ID = var.google_drive_folder_id
   }
 
-  # Exemplo de segredo (crie o secret no Secret Manager / via esteira):
-  # secret_env = {
-  #   API_TOKEN = { secret = "ingestion-api-token", version = "latest" }
-  # }
+  secret_env = {
+    SALT = { secret = google_secret_manager_secret.ingestion_salt.secret_id }
+  }
 
-  depends_on = [module.baseline]
+  depends_on = [
+    module.baseline,
+    google_secret_manager_secret_iam_member.ingestion_salt,
+  ]
 }
 
 # ---------------------------------------------------------------------------
