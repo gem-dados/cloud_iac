@@ -11,26 +11,47 @@ APIs, BigQuery, buckets, Cloud Run, Artifact Registry e Dataform.
 
 ## Visão geral
 
-```
-                      GitHub (org gem-dados, repos públicos)
-                                    │
-          ┌─────────────────────────┴─────────────────────────┐
-          │                         │                          │
-      cloud_iac                data_ingestion              data_models
-   (Terraform / IaC)        (Python → Cloud Run)         (SQL → Dataform)
-          │                         │                          │
-          │  push/PR → Cloud Build  │  push → Cloud Build      │ Dataform
-          ▼                         ▼                          ▼
-  ┌───────────────────────────────────────────────────────────────────┐
-  │  GCP — pasta "lake"                                                │
-  │                                                                   │
-  │   gem-dados-lake-stg            gem-dados-lake-prd                 │
-  │   ├─ BigQuery: raw/staging/marts    (mesma estrutura)             │
-  │   ├─ GCS: <proj>-raw                                              │
-  │   ├─ Artifact Registry: data-ingestion                           │
-  │   ├─ Cloud Run: data-ingestion                                   │
-  │   └─ Dataform: data-models                                       │
-  └───────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph GitHub["GitHub (org gem-dados)"]
+        IaC["cloud_iac<br/>(Terraform / IaC)"]
+        App["data_ingestion<br/>(Python / Cloud Run)"]
+        Models["data_models<br/>(SQL / Dataform)"]
+    end
+
+    subgraph Pipelines["CI/CD — Cloud Build"]
+        CBIaC["Cloud Build (IaC)<br/>terraform apply"]
+        CBApp["Cloud Build (App)<br/>Docker build & deploy"]
+        CBModels["Cloud Build (Dataform)<br/>aciona Workflow"]
+    end
+
+    subgraph GCP["GCP — Projetos Lake (stg / prd)"]
+        CR["Cloud Run<br/>(data-ingestion)"]
+        GCS["Cloud Storage<br/>(&lt;proj&gt;-raw)"]
+        BQRaw["BigQuery: raw"]
+        WF["Cloud Workflows & Scheduler<br/>(dataform-runner)"]
+        BQStg["BigQuery: staging"]
+        BQViews["Views Analíticas SQL<br/>(vw_program_activity)"]
+    end
+
+    subgraph Visualizacao["Camada de Visualização"]
+        Looker["Looker Studio<br/>(Dashboard de Mentorados)"]
+    end
+
+    IaC -->|"push/PR"| CBIaC
+    App -->|"push"| CBApp
+    Models -->|"push"| CBModels
+
+    CBIaC -->|"provisiona"| GCP
+    CBApp -->|"deploy"| CR
+    CR -->|"grava parquet"| GCS
+    CR -->|"carrega dados"| BQRaw
+
+    CBModels -->|"executa"| WF
+    WF -->|"compila e roda"| BQStg
+    BQRaw --> BQStg
+    BQStg --> BQViews
+    BQViews --> Looker
 ```
 
 | Ambiente | Projeto GCP | Branch que aplica |
@@ -245,3 +266,14 @@ BI ↔ lake resolve.
 Resumo em [SECURITY.md](./SECURITY.md). Pontos-chave: sem segredo no git
 (gitleaks), sem chave JSON (a esteira usa a SA direto), buckets sem acesso
 público, SA da esteira sem `owner`, produção só pela esteira.
+
+---
+
+## Documentação Oficial do Projeto
+
+Documentações completas disponíveis na pasta [`docs/`](./docs/):
+
+- [Documentação Técnica (PDF)](./docs/GEMDados_Documentacao_Tecnica.pdf) — arquitetura dos módulos Terraform, IAM, esteiras de CI/CD e controles de segurança;
+- [Documentação de Negócio (PDF)](./docs/GEMDados_Documentacao_Negocio.pdf) — governança, perguntas de negócio, regras analíticas e catálogo de limitações;
+- [Códigos-fonte e Script de Compilação LaTeX](./docs/README.md) — fontes `.tex`, estilos visuais `gemdados.sty`, ativos e script de compilação automatizada.
+
