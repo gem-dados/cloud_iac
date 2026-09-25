@@ -1,0 +1,158 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{gemdados}[2026/09/23 Identidade visual GEM Dados]
+
+\RequirePackage{fontspec}
+\RequirePackage[a4paper,top=24mm,bottom=22mm,left=23mm,right=23mm,headheight=22pt]{geometry}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc}
+\RequirePackage{fancyhdr}
+\RequirePackage{titlesec}
+\RequirePackage{enumitem}
+\RequirePackage{booktabs}
+\RequirePackage{longtable}
+\RequirePackage{tabularx}
+\RequirePackage{array}
+\RequirePackage{hyperref}
+\RequirePackage{microtype}
+\RequirePackage{listings}
+\RequirePackage[most]{tcolorbox}
+\RequirePackage{lastpage}
+
+\providecommand{\DocumentVersion}{1.2}
+
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont[
+  Path=assets/fonts/,
+  Extension=.ttf,
+  UprightFont=ChakraPetch-Medium,
+  BoldFont=ChakraPetch-SemiBold,
+  ItalicFont=ChakraPetch-Medium,
+  BoldItalicFont=ChakraPetch-SemiBold
+]{ChakraPetch}
+\setsansfont[
+  Path=assets/fonts/,
+  Extension=.ttf,
+  UprightFont=ChakraPetch-Medium,
+  BoldFont=ChakraPetch-SemiBold
+]{ChakraPetch}
+
+\definecolor{GEMDark}{HTML}{153B58}
+\definecolor{GEMBlue}{HTML}{2769B2}
+\definecolor{GEMLight}{HTML}{EAF3F9}
+\definecolor{GEMPale}{HTML}{F5F9FC}
+\definecolor{GEMInk}{HTML}{22313B}
+\definecolor{GEMGray}{HTML}{667680}
+\definecolor{GEMGreen}{HTML}{2C7A68}
+\definecolor{GEMAmber}{HTML}{B66A13}
+
+\hypersetup{
+  hidelinks,
+  pdftitle={Documentação GEM Dados},
+  pdfauthor={GEM Dados}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=6mm,itemsep=2pt,topsep=3pt}
+\renewcommand{\arraystretch}{1.22}
+\setlength{\tabcolsep}{5pt}
+
+\titleformat{\section}
+  {\Large\bfseries\color{GEMDark}}
+  {\thesection}{0.5em}{}
+\titleformat{\subsection}
+  {\large\bfseries\color{GEMDark}}
+  {\thesubsection}{0.55em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{GEMBlue}}
+  {\thesubsubsection}{0.55em}{}
+\titlespacing*{\section}{0pt}{18pt}{7pt}
+\titlespacing*{\subsection}{0pt}{13pt}{5pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textbf{GEM} \textcolor{GEMBlue}{DADOS}}
+\fancyhead[R]{\small\textcolor{GEMGray}{\DocumentKind}}
+\fancyfoot[L]{\footnotesize\textcolor{GEMGray}{Versão \DocumentVersion{} - setembro de 2026}}
+\fancyfoot[R]{\footnotesize\textcolor{GEMGray}{\thepage/\pageref*{LastPage}}}
+\renewcommand{\headrulewidth}{0.6pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{GEMBlue}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrulewidth}{0pt}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newtcolorbox{gemnote}[1][Nota]{
+  colback=GEMLight,
+  colframe=GEMBlue,
+  coltitle=white,
+  title=\textbf{#1},
+  arc=1.5mm,
+  boxrule=0.7pt,
+  left=3mm,right=3mm,top=2mm,bottom=2mm,
+  before upper=\raggedright
+}
+
+\newtcolorbox{gemwarning}[1][Atenção]{
+  colback=GEMPale,
+  colframe=GEMAmber,
+  coltitle=white,
+  title=\textbf{#1},
+  arc=1.5mm,
+  boxrule=0.7pt,
+  left=3mm,right=3mm,top=2mm,bottom=2mm,
+  before upper=\raggedright
+}
+
+\newcommand{\code}[1]{#1}
+
+\newcommand{\GemCover}[3]{%
+  \begin{titlepage}
+    \thispagestyle{empty}
+    \begin{tikzpicture}[remember picture,overlay]
+      \fill[GEMDark] (current page.north west) rectangle ([yshift=-20mm]current page.north east);
+      \fill[GEMBlue] (current page.south west) rectangle ([xshift=10mm]current page.north west);
+      \draw[GEMBlue!12,line width=1pt]
+        ([xshift=-8mm,yshift=15mm]current page.south east) --
+        ([xshift=-36mm,yshift=44mm]current page.south east) --
+        ([xshift=-8mm,yshift=73mm]current page.south east);
+      \draw[GEMBlue!12,line width=1pt]
+        ([xshift=-28mm,yshift=6mm]current page.south east) --
+        ([xshift=-56mm,yshift=35mm]current page.south east) --
+        ([xshift=-28mm,yshift=64mm]current page.south east);
+    \end{tikzpicture}
+    \vspace*{27mm}
+    \begin{center}
+      \includegraphics[width=0.66\textwidth]{assets/gemdados-logo.png}
+    \end{center}
+    \vfill
+    \hspace{6mm}\begin{minipage}{0.88\textwidth}
+      {\fontsize{28}{32}\selectfont\bfseries\color{GEMDark}#1\par}
+      \vspace{5mm}
+      {\Large\color{GEMBlue}#2\par}
+      \vspace{9mm}
+      {\normalsize\color{GEMGray}#3\par}
+    \end{minipage}
+    \vfill
+    \hspace{6mm}{\small\textcolor{GEMGray}{GEM Dados - Grupo de Estudos e Mentoria em Dados}}
+    \vspace*{12mm}
+  \end{titlepage}
+}
+
+\lstdefinestyle{gemcode}{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{GEMPale},
+  frame=single,
+  rulecolor=\color{GEMBlue!40},
+  breaklines=true,
+  columns=fullflexible,
+  showstringspaces=false,
+  xleftmargin=2mm,
+  xrightmargin=2mm,
+  aboveskip=7pt,
+  belowskip=7pt
+}
+\lstset{style=gemcode}

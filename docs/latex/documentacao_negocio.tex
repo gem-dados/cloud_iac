@@ -1,0 +1,271 @@
+% !TEX program = tectonic
+\documentclass[11pt,a4paper]{article}
+\newcommand{\DocumentKind}{Documentação de negócio}
+\newcommand{\DocumentVersion}{1.6}
+\usepackage{gemdados}
+
+\begin{document}
+
+\GemCover
+  {Documentação de Negócio}
+  {Analytics para acompanhamento da aprendizagem}
+  {Objetivos, perguntas de negócio, dashboard Looker Studio e limitações de dados.}
+
+\section*{Controle do documento}
+
+\begin{tabularx}{\textwidth}{L{35mm}Y}
+\toprule
+\textbf{Campo} & \textbf{Valor} \\
+\midrule
+Versão & 1.6 \\
+Data de referência & 24 de setembro de 2026 \\
+Público & Coordenação, governança, mentores, analistas e participantes \\
+Escopo & Objetivos de negócio, dashboard e entregas validadas do projeto DATACAMP ANALYTICS \\
+Fontes de validação & GitHub Projects, repositórios da organização, Looker Studio e nuvem Google \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Critério}
+
+O GitHub Project possui 77 cards. Este documento considera como entrega somente
+os 55 cards marcados como \textbf{Pronto}. Os demais não são apresentados como
+resultado concluído. As entregas e visualizações foram conferidas nos repositórios,
+no BigQuery e no Looker Studio em 24 de setembro de 2026.
+
+\clearpage
+\tableofcontents
+\clearpage
+
+\section{Propósito do projeto}
+
+O projeto transforma relatórios de aprendizagem em informações para
+acompanhamento e tomada de decisão. O foco é entender como os membros estudam,
+avançam, concluem conteúdos e desenvolvem qualificações, garantindo rastreabilidade
+e confiabilidade nos indicadores apresentados.
+
+\section{Termos essenciais}
+
+\begin{longtable}{L{40mm}L{106mm}}
+\toprule
+\textbf{Termo} & \textbf{Significado} \\
+\midrule
+\endhead
+Analytics & Uso de dados para produzir indicadores, compreender resultados e apoiar decisões. \\
+DataCamp & Plataforma de aprendizagem que fornece os relatórios usados pelo projeto. \\
+GitHub Project & Quadro de gestão que organiza as entregas em cards e registra sua situação. \\
+Governança de dados & Regras e responsabilidades para uso, proteção, qualidade e acesso às informações. \\
+Dados pessoais & Informações que identificam uma pessoa, como nome, e-mail ou nome de usuário. \\
+Código anônimo & Identificador (\code{user\_id}) que substitui dados pessoais nas análises comuns. \\
+Pipeline & Sequência organizada de etapas para receber, proteger, tratar e disponibilizar os dados. \\
+BI & Inteligência de negócios: relatórios e painéis para acompanhamento de métricas. \\
+Looker Studio & Ferramenta de visualização e construção do dashboard de acompanhamento. \\
+Views analíticas & Consultas salvas no BigQuery que centralizam regras de cálculo e métricas. \\
+XP & Pontos de experiência obtidos nas atividades de aprendizagem. \\
+Homologação & Ambiente usado para validar mudanças antes do uso oficial (\code{gem-dados-lake-stg}). \\
+Produção & Ambiente oficial destinado ao uso do projeto (\code{gem-dados-lake-prd}). \\
+Squad de Dados & Equipe aprovada responsável pelas atividades de dados do projeto. \\
+\bottomrule
+\end{longtable}
+
+\section{Squad de Dados}
+
+O projeto organiza a informação sem expor diretamente nome, e-mail ou nome de
+usuário nas análises. Dessa forma, a governança pode acompanhar resultados do
+grupo e investigar situações autorizadas sem disponibilizar dados pessoais para
+o consumo analítico comum. O acesso aos nomes fica restrito à Squad de Dados,
+quando necessário e autorizado.
+
+\begin{tabularx}{\textwidth}{L{52mm}Y}
+\toprule
+\textbf{Função} & \textbf{Integrantes} \\
+\midrule
+Squad Lead & Kauã Henrique Da Silva \\
+Engenharia de Dados - Pipeline & Maria Eduarda Mesquita Sá Barbosa; Isabella Almeida Fernandes \\
+Engenharia de Dados - Qualidade & Amanda Böckmann; Juliana Damasceno dos Santos \\
+Analytics Engineer & Maria Clara Fagundes da Silva; Larissa Kaynne Botelho Marques \\
+Analista de Dados / BI & Jeanne Paula Caputo; Grasiela Costa da Silva \\
+\bottomrule
+\end{tabularx}
+
+\section{Perguntas de negócio atendidas pelo dashboard}
+
+O dashboard foi construído para responder às perguntas que puderam ser calculadas
+de forma consistente a partir das fontes disponibilizadas na camada de staging:
+
+\begin{longtable}{L{52mm}L{94mm}}
+\toprule
+\textbf{Pergunta de negócio} & \textbf{Decisão e acompanhamento apoiado} \\
+\midrule
+\endhead
+Volume de conclusões & Quantos cursos, projetos, capítulos e assessments foram concluídos pelos mentorados. \\
+Taxas de conclusão & Proporção de conclusão das diferentes atividades (cursos, projetos, capítulos e assessments). \\
+Distribuição de qualificação & Identificação do nível de proficiência em habilidades e distribuição do status de certificações. \\
+Desempenho por trilha & Comparação entre total de cursos e média de cursos concluídos por trilha, e taxa de conclusão por trilha. \\
+Variação por segmentos & Comportamento dos indicadores segundo recortes de trilha (\textit{track}), período e nível de habilidade. \\
+Entregas por equipe & Acompanhamento consolidado do volume de projetos práticos e certificações concluídas por equipe. \\
+\bottomrule
+\end{longtable}
+
+\section{Informações que sustentam as análises}
+
+O projeto trabalha com dez conjuntos de relatórios da plataforma de
+aprendizagem. Eles foram identificados, classificados e ligados aos temas de
+negócio abaixo:
+
+\begin{tabularx}{\textwidth}{L{49mm}Y}
+\toprule
+\textbf{Assunto} & \textbf{Uso no acompanhamento} \\
+\midrule
+Membros e licenças & Identificação da população acompanhada e de sua situação de acesso. \\
+Resumo geral & Visão consolidada de participação, progresso e atividades concluídas. \\
+Certificações & Início, encerramento e resultado das certificações. \\
+Catálogo de conteúdo & Relação dos conteúdos e características disponíveis. \\
+Atividade em cursos & Início, conclusão, progresso, XP e situação dos cursos. \\
+Atividade em programas & Participação e conclusão de programas e trilhas. \\
+Atividade em projetos & Participação em projetos práticos e registro de conclusão. \\
+Avaliações de habilidades & Tentativas, pontuação e nível de conhecimento reportado. \\
+Histórico de equipes & Entrada, saída e movimentação dos membros nas equipes. \\
+Tempo de aprendizagem & Tempo dedicado aos diferentes tipos de atividade. \\
+\bottomrule
+\end{tabularx}
+
+A utilização efetiva no dashboard dependeu da disponibilidade e consistência
+dos campos para cada indicador, sendo priorizadas as tabelas de staging
+\code{stg\_certifications}, \code{stg\_course\_activity}, \code{stg\_program\_activity},
+\code{stg\_skill\_assessment} e \code{stg\_project\_activity}.
+
+\section{Dashboard de Acompanhamento (Looker Studio)}
+
+O dashboard consolida os indicadores em três páginas de visualização,
+alimentadas diretamente pela camada staging e views analíticas do BigQuery.
+
+\subsection{Páginas do dashboard}
+
+\begin{longtable}{L{42mm}L{104mm}}
+\toprule
+\textbf{Página} & \textbf{Indicadores e visualizações apresentados} \\
+\midrule
+\endhead
+Progresso \& Volume & Cards de trilhas concluídas, alunos com trilhas concluídas, cursos concluídos, projetos concluídos e assessments concluídos. Gráfico de atividades concluídas por tipo (exercícios, práticas e capítulos). Taxas de conclusão de cursos, capítulos, projetos e assessments calculadas na view \code{vw\_program\_activity}. \\
+\addlinespace
+Qualificação & Total de certificações obtidas e assessments realizados. Gráficos de distribuição de desempenho por habilidade e status das certificações. Acompanhamento de projetos concluídos por equipe e certificações concluídas por equipe. \\
+\addlinespace
+Desempenho & Comparação entre quantidade total de cursos e média de cursos concluídos por trilha. Percentual de taxa de conclusão de cursos por trilha. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Filtros dinâmicos implementados}
+
+\begin{itemize}
+  \item \textbf{Trilha (\textit{Track})}: permite isolar o progresso em trilhas de formação específicas;
+  \item \textbf{Período (\textit{Period})}: possibilita a análise temporal delimitada das conclusões e atividades;
+  \item \textbf{Nível de habilidade (\textit{Skill Level})}: filtra métricas conforme o nível avaliado nos assessments.
+\end{itemize}
+
+\section{Limitações e indicadores não implementados}
+
+Durante a exploração e validação das fontes de dados, algumas métricas inicialmente
+previstas em wireframe não puderam ser integradas ao dashboard final. Como princípio
+de governança, uma métrica somente foi implementada quando os dados permitiam uma regra
+de cálculo consistente, rastreável e auditável, sem recurso a aproximações artificiais.
+
+\subsection{Indicadores previstos no wireframe e descartados}
+
+\begin{longtable}{L{56mm}L{90mm}}
+\toprule
+\textbf{Indicador previsto} & \textbf{Limitação técnica e de negócio identificada} \\
+\midrule
+\endhead
+Tempo de aprendizado semanal por membro & Dados temporais sem granularidade suficiente para determinar o tempo efetivamente dedicado em cada semana individual. \\
+\addlinespace
+Volume de conclusão por curso & Dados necessários para relacionar volume de conclusão e demais atributos do curso não estavam disponíveis na estrutura necessária. \\
+\addlinespace
+Média de projetos práticos concluídos por membro & Não foi possível estabelecer de forma consistente a chave relacional necessária entre os dados de projetos e membros. \\
+\addlinespace
+Programas ou certificações com maior engajamento & Ausência de dados suficientes para relacionar de forma confiável engajamento, programas e certificações. \\
+\addlinespace
+Percentual de membros que não iniciaram atividades & Impossibilidade de correlacionar com segurança a totalidade da base de membros com os registros de atividade. \\
+\addlinespace
+Cursos com alto tempo e baixa conclusão & A granularidade temporal disponível não permitia relacionar adequadamente tempo de aprendizado e conclusão por curso. \\
+\addlinespace
+Relação entre XP obtido e disponível & A proporção entre XP obtido e XP disponível não foi incorporada à versão final do dashboard. \\
+\bottomrule
+\end{longtable}
+
+\section{Entregas concluídas no GitHub Project}
+
+\subsection{Entendimento dos dados e das regras}
+
+\begin{itemize}
+  \item análise dos dez relatórios e de suas colunas;
+  \item identificação de dados pessoais e mapeamento de chaves;
+  \item levantamento das relações entre membros, cursos, programas, projetos e avaliações;
+  \item criação do dicionário inicial das informações;
+  \item definição do escopo do painel a partir dos dados viáveis;
+  \item documentação das regras de programas, cursos, certificações, avaliações e XP.
+\end{itemize}
+
+\subsection{Recebimento e organização das informações}
+
+\begin{itemize}
+  \item reconhecimento automático do tipo de cada relatório recebido;
+  \item conversão dos arquivos para formato Parquet;
+  \item envio e carga dos dados na camada raw do BigQuery;
+  \item validação da quantidade de registros entre a origem e o arquivo processado;
+  \item correção dos tipos de datas, números e textos;
+  \item atualização sem duplicar registros já existentes.
+\end{itemize}
+
+\subsection{Proteção de dados pessoais}
+
+\begin{itemize}
+  \item substituição dos identificadores pessoais por código anônimo (\code{user\_id});
+  \item separação entre informações analíticas e mapa restrito de identidade;
+  \item remoção de nome, e-mail e username das tabelas analíticas e do dashboard;
+  \item uso do mesmo código anônimo em todas as tabelas relacionadas.
+\end{itemize}
+
+\subsection{Camada analítica e visualização}
+
+\begin{itemize}
+  \item limpeza e padronização dos dados na camada staging;
+  \item view analítica \code{vw\_program\_activity} no BigQuery;
+  \item dashboard Looker Studio com 3 páginas operacionais e filtros dinâmicos;
+  \item validação de consistência dos indicadores de volume e taxas de conclusão.
+\end{itemize}
+
+\section{Governança e privacidade}
+
+O desenho concluído separa três finalidades:
+
+\begin{enumerate}
+  \item \textbf{recebimento}: preserva a informação conforme recebida da origem;
+  \item \textbf{tratamento}: corrige tipos, padroniza valores e aplica as regras de proteção;
+  \item \textbf{análise e visualização}: disponibiliza dados anonimizados para views e painéis.
+\end{enumerate}
+
+O vínculo entre o código anônimo e a identidade do membro fica em área
+restrita. O dashboard consome exclusivamente \code{user\_id}, preservando a privacidade
+dos participantes.
+
+\section{Validação nos ambientes}
+
+\begin{tabularx}{\textwidth}{L{38mm}Y}
+\toprule
+\textbf{Ambiente} & \textbf{Situação verificada} \\
+\midrule
+Homologação & Possui os dez relatórios recebidos, dados tratados na camada staging, view analítica (\code{vw\_program\_activity}) ativa e o dashboard Looker Studio conectado e operacional. \\
+Produção & Possui a infraestrutura base, esteiras de automação e serviço de recebimento provisionados via Terraform. Modelos de visualização analítica serão promovidos após ciclo de homologação. \\
+\bottomrule
+\end{tabularx}
+
+\section{Resumo executivo}
+
+O projeto GEM Dados entregou uma solução integrada de acompanhamento de aprendizagem,
+com pipeline automatizado na nuvem Google, proteção total a dados pessoais por
+anonimização e dashboard analítico no Looker Studio. O painel viabiliza o acompanhamento
+de volumes de conclusão, taxas de avanço e distribuição de qualificações
+e certificações por equipe. As limitações inerentes à granularidade das fontes foram
+mapeadas com transparência, garantindo indicadores rastreáveis, íntegros e auditáveis.
+
+\end{document}

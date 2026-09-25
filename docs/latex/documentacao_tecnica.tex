@@ -1,0 +1,465 @@
+% !TEX program = tectonic
+\documentclass[11pt,a4paper]{article}
+\newcommand{\DocumentKind}{Documentação técnica}
+\newcommand{\DocumentVersion}{1.4}
+\usepackage{gemdados}
+
+\begin{document}
+
+\GemCover
+  {Documentação Técnica}
+  {Plataforma de dados, infraestrutura e operação}
+  {Descrição consolidada da infraestrutura, pipelines, views analíticas e dashboard Looker Studio.}
+
+\section*{Controle do documento}
+
+\begin{tabularx}{\textwidth}{L{35mm}Y}
+\toprule
+\textbf{Campo} & \textbf{Valor} \\
+\midrule
+Versão & 1.4 \\
+Data de referência & 24 de setembro de 2026 \\
+Público & Time técnico, mantenedores, mentores e novos colaboradores \\
+Escopo & Infraestrutura GCP, pipelines, views analíticas no BigQuery e dashboard Looker Studio \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Critério}
+
+O conteúdo descreve os recursos provisionados em nuvem, repositórios de código,
+views analíticas SQL no BigQuery e a integração com a camada de visualização
+no Looker Studio em 24 de setembro de 2026.
+
+\clearpage
+\tableofcontents
+\clearpage
+
+\section{Objetivo e escopo}
+
+A plataforma de dados em nuvem GEM Dados cobre infraestrutura como código, serviço
+de ingestão conteinerizado, modelagem analítica no BigQuery e camada de visualização
+no Looker Studio.
+
+Este documento registra:
+
+\begin{itemize}
+  \item a responsabilidade de cada repositório e camada;
+  \item os recursos de infraestrutura definidos para os ambientes;
+  \item as rotas, funções e variáveis do serviço de ingestão;
+  \item as declarações de fontes e tabelas staging;
+  \item as views analíticas SQL que centralizam as regras de cálculo;
+  \item a arquitetura de consumo do dashboard Looker Studio;
+  \item as esteiras de validação, deploy e controles de segurança.
+\end{itemize}
+
+\section{Termos essenciais}
+
+\begin{tabularx}{\textwidth}{L{32mm}Y}
+\toprule
+\textbf{Termo} & \textbf{Significado neste projeto} \\
+\midrule
+GCP & Google Cloud Platform, conjunto de serviços em nuvem usado pela solução. \\
+GCS & Google Cloud Storage, armazenamento de objetos usado para a landing zone. \\
+BigQuery & Banco analítico que hospeda os datasets \code{raw}, \code{staging} e \code{marts}. \\
+Cloud Run & Serviço que executa o container Python de ingestão. \\
+Dataform & Serviço que compila e executa as definições SQLX no BigQuery. \\
+Terraform & Ferramenta de infraestrutura como código usada em \code{cloud\_iac}. \\
+Cloud Build & Serviço de CI/CD que valida, constrói e publica mudanças. \\
+IAM & Controle de identidades e permissões dos recursos do GCP. \\
+Looker Studio & Ferramenta de BI que provê o dashboard de acompanhamento de mentorados. \\
+Views analíticas & Camada SQL no BigQuery que centraliza regras e métricas calculadas. \\
+\bottomrule
+\end{tabularx}
+
+\section{Arquitetura registrada no código}
+
+\subsection{Componentes}
+
+\begin{enumerate}
+  \item O repositório \code{cloud\_iac} define recursos e permissões no GCP com
+  Terraform.
+  \item O repositório \code{data\_ingestion} contém uma aplicação Flask
+  configurada para Cloud Run.
+  \item O repositório \code{data\_models} registra dez fontes raw no Dataform.
+  \item Cloud Build, Cloud Workflows e Cloud Scheduler conectam deploy e
+  execução conforme os arquivos Terraform e YAML versionados.
+  \item Views SQL analíticas intermediárias consolidam as regras de negócio
+  sobre a camada \code{staging}.
+  \item O Looker Studio consome as views e tabelas de staging para alimentar
+  o Dashboard de Acompanhamento de Mentorados.
+\end{enumerate}
+
+\subsection{Fluxo da arquitetura de ponta a ponta}
+
+\begin{center}
+\code{Staging (BigQuery) -> Views SQL Analíticas -> Looker Studio -> Dashboard}
+\end{center}
+
+\subsection{Ambientes}
+
+\begin{tabularx}{\textwidth}{L{25mm}L{46mm}L{25mm}Y}
+\toprule
+\textbf{Ambiente} & \textbf{Projeto GCP} & \textbf{Branch} & \textbf{Finalidade registrada} \\
+\midrule
+Staging & \code{gem-dados-lake-stg} & \code{stg} & Ambiente de validação integrado e origem do dashboard. \\
+Produção & \code{gem-dados-lake-prd} & \code{main} & Ambiente associado à branch principal. \\
+\bottomrule
+\end{tabularx}
+
+Cada ambiente possui diretório Terraform, backend de state, projeto GCP e
+valores próprios. A promoção descrita nos READMEs ocorre de \code{stg} para
+\code{main} por pull request.
+
+\section{Mapa dos repositórios}
+
+\begin{longtable}{L{34mm}L{35mm}L{47mm}L{33mm}}
+\toprule
+\textbf{Repositório} & \textbf{Tecnologia} & \textbf{Responsabilidade} & \textbf{Artefato produzido} \\
+\midrule
+\endhead
+\code{cloud\_iac} & Terraform e Cloud Build & Define recursos, IAM, conexões e esteiras no GCP. & Plano e aplicação de infraestrutura. \\
+\code{data\_ingestion} & Python, Flask e Cloud Run & Expõe rotas HTTP e executa jobs de ingestão. & Imagem Docker para Cloud Run. \\
+\code{data\_models} & SQLX e Dataform & Declara fontes e transforma dados no BigQuery. & Views de staging e tabelas de marts. \\
+\bottomrule
+\end{longtable}
+
+\section{Infraestrutura - \code{cloud\_iac}}
+
+\subsection{Diretórios de configuração}
+
+\begin{tabularx}{\textwidth}{L{34mm}Y}
+\toprule
+\textbf{Diretório} & \textbf{Conteúdo versionado} \\
+\midrule
+\code{bootstrap/} & Bucket de state, conta \code{terraform-ci}, Secret Manager, conexão GitHub 2nd gen e triggers iniciais. \\
+\code{org/} & Tag de governança \code{environment}, valores de ambiente e permissão \code{tagUser}. \\
+\code{envs/stg/} & Composição Terraform do projeto \code{gem-dados-lake-stg}. \\
+\code{envs/prd/} & Composição Terraform do projeto \code{gem-dados-lake-prd}. \\
+\code{modules/} & Módulos Terraform chamados pelos ambientes e pelo bootstrap. \\
+\bottomrule
+\end{tabularx}
+
+\clearpage
+\subsection{Módulos Terraform presentes no repositório}
+
+\begin{longtable}{L{43mm}L{48mm}L{58mm}}
+\toprule
+\textbf{Módulo} & \textbf{Recurso principal} & \textbf{Configuração encontrada} \\
+\midrule
+\endhead
+\code{project\_baseline} & APIs e tag de ambiente & Habilita APIs e pode vincular a tag de governança ao projeto. \\
+\code{gcs\_bucket} & Bucket GCS & Acesso uniforme, prevenção de acesso público, versionamento e lifecycle. \\
+\code{bigquery\_dataset} & Dataset BigQuery & Localização, descrição, labels e controles de destruição. \\
+\code{artifact\_registry} & Repositório Docker & Repositório usado para a imagem de ingestão. \\
+\code{cloud\_run\_service} & Serviço Cloud Run v2 & Imagem, conta de serviço, recursos, env vars, secrets e invocadores. \\
+\code{dataform\_repository} & Repositório Dataform & URL Git, branch, token e banco padrão. \\
+\code{dataform\_orchestration} & Workflow e Scheduler & Conta orquestradora, permissões, Workflow e agendamento. \\
+\code{ingestion\_orchestration} & Workflow e Scheduler & Orquestração da ingestão conteinerizada antes do Dataform. \\
+\code{cloudbuild\_connection} & Conexão GitHub 2nd gen & Conexão e registro de repositório no Cloud Build. \\
+\code{cloudbuild\_trigger} & Trigger Cloud Build & Evento push ou pull request, branch, arquivo YAML e substituições. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Recursos definidos por ambiente}
+
+Os arquivos \code{envs/stg/main.tf} e \code{envs/prd/main.tf} possuem a mesma
+estrutura. Neles estão definidos:
+
+\begin{itemize}
+  \item habilitação de APIs e vínculo da tag de ambiente;
+  \item conta de serviço \code{data-ingestion} e seus vínculos IAM;
+  \item datasets BigQuery \code{raw}, \code{staging} e \code{marts};
+  \item bucket \code{<project>-raw};
+  \item Artifact Registry \code{data-ingestion};
+  \item serviço Cloud Run \code{data-ingestion};
+  \item repositório Dataform \code{data-models};
+  \item conta \code{dataform-runner} e permissões de BigQuery;
+  \item Workflow e Scheduler do Dataform;
+  \item registros e triggers Cloud Build de \code{data\_ingestion} e
+  \code{data\_models};
+  \item permissão para a esteira invocar o Workflow.
+\end{itemize}
+
+\subsection{Valores dos ambientes}
+
+\begin{tabularx}{\textwidth}{L{34mm}L{47mm}Y}
+\toprule
+\textbf{Variável} & \textbf{Valor versionado} & \textbf{Uso} \\
+\midrule
+\code{project\_id} & \shortstack[l]{\code{gem-dados-lake-stg}\\\code{gem-dados-lake-prd}} & Projeto do ambiente. \\
+\code{env} & \code{stg} ou \code{prd} & Nomes, labels e branch de deploy. \\
+\code{region} & \code{us-central1} & Região dos serviços regionais. \\
+\code{bq\_location} & \code{US} & Localização dos datasets BigQuery. \\
+\code{github\_owner} & \code{gem-dados} & Organização dos repositórios. \\
+\code{org\_id} & \code{809669352691} & Organização usada pela tag de governança. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Esteiras de infraestrutura}
+
+\subsubsection{Pull request}
+
+O arquivo \code{cloudbuild-pr.yaml} executa \code{gitleaks}, \code{tfsec},
+\code{terraform fmt -check}, \code{terraform validate} e \code{terraform plan}.
+O YAML não possui etapa de apply.
+
+\subsubsection{Push na branch do ambiente}
+
+O arquivo \code{cloudbuild.yaml} executa gitleaks, validação, plan e
+\code{terraform apply}. A variável \code{\_ENV} seleciona \code{envs/stg} ou
+\code{envs/prd}.
+
+\section{Ingestão - \code{data\_ingestion}}
+
+\subsection{Aplicação HTTP}
+
+O arquivo \code{src/main.py} cria uma aplicação Flask com um registro interno de
+jobs. As rotas existentes são:
+
+\begin{tabularx}{\textwidth}{L{38mm}L{24mm}Y}
+\toprule
+\textbf{Rota} & \textbf{Método} & \textbf{Comportamento no código} \\
+\midrule
+\code{/healthz} & GET & Retorna um JSON com status \code{ok}. \\
+\code{/run/<job\_name>} & POST & Procura o job no dicionário \code{JOBS}, executa a rotina correspondente e retorna \code{done}; nomes ausentes retornam HTTP 404. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Jobs de ingestão registrados}
+
+\begin{longtable}{L{48mm}L{100mm}}
+\toprule
+\textbf{Nome no endpoint} & \textbf{Script e função executada} \\
+\midrule
+\endhead
+\code{ingest} & \code{identify\_datacamp\_csvs.py}: identifica dinamicamente os relatórios no Drive por assinatura de colunas. \\
+\code{upload\_gcs} & \code{upload\_parquet\_to\_gcs.py}: converte os relatórios para Parquet e realiza o upload para o GCS. \\
+\code{load\_bq} & \code{load\_gcs\_parquet\_to\_bigquery.py}: aterrissa os dados Parquet do GCS nas tabelas \code{raw} do BigQuery. \\
+\code{rotina\_sem\_duplicatas} & \code{rotina\_sem\_duplicatas\_job.py}: pipeline integrado e idempotente sem geração de registros duplicados. \\
+\bottomrule
+\end{longtable}
+
+O Dockerfile usa Python 3.12 slim, instala as dependências, copia \code{src/},
+cria o usuário não-root \code{appuser} e inicia Gunicorn na porta definida por
+\code{PORT}.
+
+\subsection{Variáveis lidas pela aplicação}
+
+\begin{tabularx}{\textwidth}{L{34mm}L{26mm}Y}
+\toprule
+\textbf{Variável} & \textbf{Leitura} & \textbf{Uso no código} \\
+\midrule
+\code{GCP\_PROJECT} & Obrigatória & Projeto dos clientes GCS e BigQuery. \\
+\code{RAW\_BUCKET} & Obrigatória & Bucket da landing zone. \\
+\code{ENVIRONMENT} & Padrão \code{stg} & Campo \code{env} do payload. \\
+\code{BQ\_DATASET} & Padrão \code{raw} & Dataset da tabela carregada. \\
+\code{PORT} & Padrão \code{8080} & Porta HTTP do servidor. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Esteira de deploy}
+
+O \code{cloudbuild.yaml} executa gitleaks, constrói a imagem Docker, publica a
+tag \code{SHORT\_SHA} no Artifact Registry e atualiza o serviço Cloud Run com
+\code{--no-allow-unauthenticated}.
+
+\section{Modelagem e Views Analíticas}
+
+\subsection{Configuração Dataform}
+
+O arquivo \code{workflow\_settings.yaml} registra:
+
+\begin{itemize}
+  \item projeto padrão \code{gem-dados-lake-stg};
+  \item localização BigQuery \code{US};
+  \item dataset padrão \code{staging};
+  \item dataset de assertions \code{dataform\_assertions};
+  \item Dataform Core 3.0.0;
+  \item variável \code{env} com valor \code{stg}.
+\end{itemize}
+
+\subsection{Declarações de fontes}
+
+\begin{longtable}{L{48mm}L{57mm}L{44mm}}
+\toprule
+\textbf{Nome Dataform} & \textbf{Origem citada na descrição} & \textbf{Descrição registrada} \\
+\midrule
+\endhead
+\code{raw\_members} & \code{membros\_export} & Membros e licenças. \\
+\code{raw\_summary} & \code{resumo\_export} & Resumo geral da plataforma. \\
+\code{raw\_certifications} & \shortstack[l]{\code{resumo\_por\_certificacao}\\\code{\_export}} & Progresso por certificação. \\
+\code{raw\_content\_catalog} & \code{catalogo\_de\_conteudo\_export} & Catálogo de conteúdos. \\
+\code{raw\_course\_activity} & \code{resumo\_por\_curso\_export} & Atividade por curso. \\
+\code{raw\_program\_activity} & \code{resumo\_por\_programa\_export} & Atividade por programa ou trilha. \\
+\code{raw\_project\_activity} & \code{resumo\_por\_projeto\_export} & Atividade por projeto prático. \\
+\code{raw\_skill\_assessments} & \shortstack[l]{\code{avaliacao\_de\_habilidades}\\\code{\_export}} & Avaliações de habilidades. \\
+\code{raw\_team\_history} & \code{historico\_da\_equipe\_export} & Histórico das equipes. \\
+\code{raw\_time\_spent} & \code{tempo\_no\_aprendizado\_export} & Tempo de aprendizado. \\
+\bottomrule
+\end{longtable}
+
+Os dez arquivos iniciados por \code{raw\_} são declarações Dataform do tipo
+\code{declaration}.
+
+\subsection{Camada de staging (\code{definitions/staging})}
+
+A camada staging padroniza nomes de colunas, aplica \code{SAFE\_CAST} para
+conversão estrita de tipos, normaliza nulos e substitui dados identificáveis
+pelo código anônimo \code{user\_id}. Conta com dez modelos:
+
+\begin{itemize}
+  \item \code{stg\_members}, \code{stg\_summary}, \code{stg\_certifications}, \code{stg\_content\_catalog};
+  \item \code{stg\_course\_activity}, \code{stg\_program\_activity}, \code{stg\_project\_activity};
+  \item \code{stg\_skill\_assessments}, \code{stg\_team\_history}, \code{stg\_time\_spent}.
+\end{itemize}
+
+\subsection{Camada de marts (\code{definitions/marts})}
+
+A camada de marts organiza tabelas fato e dimensão para consumo analítico:
+
+\begin{itemize}
+  \item \textbf{Dimensões}: \code{dim\_usuarios}, \code{dim\_conteudo};
+  \item \textbf{Fatos}: \code{fct\_progresso\_cursos}, \code{fct\_progresso\_trilhas}, \code{fct\_atividades\_projetos}, \code{fct\_certificacoes}, \code{fct\_avaliacoes\_habilidades}, \code{fct\_resumo\_usuario}, \code{fct\_historico\_equipe}, \code{fct\_tempo\_aprendizado};
+  \item \textbf{Agregações periódicas}: \code{mart\_metricas\_semanais}.
+\end{itemize}
+
+\subsection{Testes de qualidade e integridade}
+
+São executadas assertions automáticas no Dataform para garantir consistência:
+\begin{itemize}
+  \item \code{assert\_raw\_stg\_row\_count}: validação de contagem de linhas entre raw e staging;
+  \item \code{assert\_raw\_stg\_metrics}: validação de consistência e completude métrica.
+\end{itemize}
+
+\subsection{Views analíticas no BigQuery (\code{gem-dados-lake-stg.staging})}
+
+Para centralizar as regras de negócio e desacoplar o cálculo das ferramentas de
+visualização, foram criadas views analíticas nativas no BigQuery:
+
+\begin{longtable}{L{45mm}L{45mm}L{58mm}}
+\toprule
+\textbf{View analítica} & \textbf{Tabela base} & \textbf{Indicadores consolidados} \\
+\midrule
+\endhead
+\code{vw\_program\_activity} & \code{stg\_program\_activity} & Taxas de conclusão de assessments, capítulos, cursos e projetos práticos. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Decisão técnica: migração dos cálculos para SQL}
+
+Inicialmente, os cálculos de taxas e proporções estavam sendo implementados na
+camada semântica do Looker Studio. Seguindo recomendação do Product Owner (PO),
+essas regras foram migradas para views SQL nativas no BigQuery.
+
+Essa abordagem teve como benefícios:
+\begin{itemize}
+  \item centralização e governança das regras de negócio;
+  \item eliminação do acoplamento com a ferramenta de visualização;
+  \item possibilidade de reaproveitamento das métricas por outras ferramentas de BI;
+  \item rastreabilidade direta do cálculo até a camada de staging;
+  \item simplificação da camada de apresentação no Looker Studio.
+\end{itemize}
+
+\section{Camada de visualização - Looker Studio}
+
+\subsection{Conexões e origens do dashboard}
+
+O Dashboard de Acompanhamento de Mentorados está hospedado no Looker Studio e
+conecta diretamente ao dataset \code{staging} do projeto \code{gem-dados-lake-stg}:
+
+\begin{itemize}
+  \item \code{vw\_program\_activity}: taxas de conclusão de atividades (cursos, capítulos, projetos e assessments);
+  \item \code{stg\_certifications}: certificações obtidas e status;
+  \item \code{stg\_skill\_assessment}: avaliações e proficiência técnica;
+  \item \code{stg\_project\_activity}: conclusões de projetos práticos.
+\end{itemize}
+
+\subsection{Estrutura de páginas e controles}
+
+O painel é estruturado em três páginas:
+\begin{enumerate}
+  \item \textbf{Progresso \& Volume}: cards consolidados de conclusões (trilhas, alunos, cursos, projetos, assessments), distribuição por tipo de atividade e taxas de conclusão;
+  \item \textbf{Qualificação}: certificações totais, assessments realizados, desempenho por habilidade e entregas agrupadas por equipe;
+  \item \textbf{Desempenho}: médias de cursos por trilha e taxa de conclusão de cursos por trilha.
+\end{enumerate}
+
+Controles dinâmicos de filtro foram aplicados para Trilha (\textit{Track}), Período (\textit{Period}) e Nível de Habilidade (\textit{Skill Level}).
+
+\section{Operação registrada}
+
+\subsection{Fluxo Git descrito nos READMEs}
+
+\begin{lstlisting}
+git checkout stg
+git pull
+git checkout -b feat/minha-mudanca
+pre-commit run --all-files
+git push -u origin feat/minha-mudanca
+\end{lstlisting}
+
+Os READMEs descrevem pull request para \code{stg}, validação no ambiente e
+promoção posterior para \code{main}.
+
+\subsection{Pontos de observação dos serviços definidos}
+
+\begin{tabularx}{\textwidth}{L{36mm}L{50mm}Y}
+\toprule
+\textbf{Componente} & \textbf{Local} & \textbf{Registro gerado pelo código} \\
+\midrule
+Cloud Build & Builds do projeto GCP & Etapas de validação, build, push, deploy ou Terraform. \\
+Cloud Run & Logs do serviço & Logs Python do job e respostas HTTP. \\
+Workflows & Workflow \code{dataform-<env>} & Compilação e criação da invocação Dataform. \\
+BigQuery & Jobs e Views & Execução de consultas analíticas e atualização de views. \\
+Looker Studio & Relatório de BI & Métricas visuais e logs de conexão com BigQuery. \\
+\bottomrule
+\end{tabularx}
+
+\section{Controles de segurança versionados}
+
+\begin{itemize}
+  \item gitleaks nos hooks de pre-commit e nos arquivos Cloud Build;
+  \item tfsec, terraform fmt, validate e plan na esteira de pull request;
+  \item \code{detect-private-key} nos hooks de infraestrutura e ingestão;
+  \item arquivos de credencial, state e chaves bloqueados pelos \code{.gitignore};
+  \item Secret Manager para o token da conexão GitHub;
+  \item contas de serviço separadas para Terraform, ingestão, orquestração e
+  execução Dataform;
+  \item bucket raw com prevenção de acesso público;
+  \item Cloud Run implantado sem acesso anônimo;
+  \item container de ingestão executado por usuário não-root;
+  \item anonimização completa dos usuários com uso de \code{user\_id} em todas as views e telas de BI.
+\end{itemize}
+
+\section{Inventário dos componentes}
+
+\begin{tabularx}{\textwidth}{L{48mm}Y}
+\toprule
+\textbf{Área} & \textbf{Conteúdo presente} \\
+\midrule
+Infraestrutura & Bootstrap, configuração de organização, dois ambientes, dez módulos Terraform (incluindo orquestração) e esteiras de plan/apply. \\
+Ingestão & Aplicação Flask/Cloud Run, quatro jobs registrados em \code{src/jobs/}, Dockerfile e esteira de deploy Cloud Run. \\
+Modelagem & Dez declarações raw, modelos de staging (\code{stg\_*}), marts (\code{dim\_*}, \code{fct\_*}), asserções de qualidade, configuração Dataform e esteira de execução. \\
+Views analíticas & View SQL \code{vw\_program\_activity} no BigQuery staging. \\
+Visualização & Dashboard Looker Studio com três páginas (Progresso, Qualificação, Desempenho) e 3 filtros. \\
+Segurança & Anonimização por \code{user\_id}, gitleaks, tfsec, Bandit/Ruff, hooks pre-commit e IAM em Terraform. \\
+\bottomrule
+\end{tabularx}
+
+\section{Localização dos componentes}
+
+\begin{tabularx}{\textwidth}{L{46mm}Y}
+\toprule
+\textbf{Componente} & \textbf{Arquivo, serviço ou diretório} \\
+\midrule
+Composição dos ambientes & \code{cloud\_iac/envs/stg} e \code{cloud\_iac/envs/prd} \\
+Módulos Terraform & \code{cloud\_iac/modules} (10 módulos) \\
+Servidor e jobs de ingestão & \code{data\_ingestion/src/main.py} e \code{data\_ingestion/src/jobs/} \\
+Imagem do serviço & \code{data\_ingestion/Dockerfile} \\
+Declarações raw & \code{data\_models/definitions/sources} \\
+Modelos Dataform & \code{data\_models/definitions/staging} e \code{data\_models/definitions/marts} \\
+Views analíticas SQL & BigQuery: \code{gem-dados-lake-stg.staging.vw\_program\_activity} \\
+Camada de BI & Looker Studio: Dashboard de Acompanhamento de Mentorados \\
+\bottomrule
+\end{tabularx}
+
+\end{document}

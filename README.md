@@ -11,26 +11,14 @@ APIs, BigQuery, buckets, Cloud Run, Artifact Registry e Dataform.
 
 ## Visão geral
 
-```
-                      GitHub (org gem-dados, repos públicos)
-                                    │
-          ┌─────────────────────────┴─────────────────────────┐
-          │                         │                          │
-      cloud_iac                data_ingestion              data_models
-   (Terraform / IaC)        (Python → Cloud Run)         (SQL → Dataform)
-          │                         │                          │
-          │  push/PR → Cloud Build  │  push → Cloud Build      │ Dataform
-          ▼                         ▼                          ▼
-  ┌───────────────────────────────────────────────────────────────────┐
-  │  GCP — pasta "lake"                                                │
-  │                                                                   │
-  │   gem-dados-lake-stg            gem-dados-lake-prd                 │
-  │   ├─ BigQuery: raw/staging/marts    (mesma estrutura)             │
-  │   ├─ GCS: <proj>-raw                                              │
-  │   ├─ Artifact Registry: data-ingestion                           │
-  │   ├─ Cloud Run: data-ingestion                                   │
-  │   └─ Dataform: data-models                                       │
-  └───────────────────────────────────────────────────────────────────┘
+| Repositório | Responsabilidade | Automação (CI/CD) | Destino no GCP |
+|---|---|---|---|
+| `cloud_iac` | Infraestrutura como Código (Terraform) | Cloud Build (`terraform apply`) | Provisiona IAM, Buckets, BigQuery, Artifact Registry e Cloud Run |
+| `data_ingestion` | Ingestão de Dados (Python / Flask) | Cloud Build (Build & Deploy Docker) | Executa jobs no Cloud Run, gravando Parquet no GCS e BigQuery `raw` |
+| `data_models` | Transformações Analíticas (Dataform) | Cloud Build (aciona Cloud Workflow) | Executa modelos no BigQuery (`staging` e `marts`) para o Looker Studio |
+
+```text
+GitHub (org gem-dados) ──► Cloud Build ──► GCP Lake (stg / prd) ──► Looker Studio
 ```
 
 | Ambiente | Projeto GCP | Branch que aplica |
@@ -245,3 +233,14 @@ BI ↔ lake resolve.
 Resumo em [SECURITY.md](./SECURITY.md). Pontos-chave: sem segredo no git
 (gitleaks), sem chave JSON (a esteira usa a SA direto), buckets sem acesso
 público, SA da esteira sem `owner`, produção só pela esteira.
+
+---
+
+## Documentação Oficial do Projeto
+
+Documentações completas disponíveis na pasta [`docs/`](./docs/):
+
+- [Documentação Técnica (PDF)](./docs/GEMDados_Documentacao_Tecnica.pdf) — arquitetura dos módulos Terraform, IAM, esteiras de CI/CD e controles de segurança;
+- [Documentação de Negócio (PDF)](./docs/GEMDados_Documentacao_Negocio.pdf) — governança, perguntas de negócio, regras analíticas e catálogo de limitações;
+- [Códigos-fonte e Script de Compilação LaTeX](./docs/README.md) — fontes `.tex`, estilos visuais `gemdados.sty`, ativos e script de compilação automatizada.
+
