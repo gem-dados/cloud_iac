@@ -11,47 +11,14 @@ APIs, BigQuery, buckets, Cloud Run, Artifact Registry e Dataform.
 
 ## Visão geral
 
-```mermaid
-flowchart TD
-    subgraph GitHub["GitHub (org gem-dados)"]
-        IaC["cloud_iac<br/>(Terraform / IaC)"]
-        App["data_ingestion<br/>(Python / Cloud Run)"]
-        Models["data_models<br/>(SQL / Dataform)"]
-    end
+| Repositório | Responsabilidade | Automação (CI/CD) | Destino no GCP |
+|---|---|---|---|
+| `cloud_iac` | Infraestrutura como Código (Terraform) | Cloud Build (`terraform apply`) | Provisiona IAM, Buckets, BigQuery, Artifact Registry e Cloud Run |
+| `data_ingestion` | Ingestão de Dados (Python / Flask) | Cloud Build (Build & Deploy Docker) | Executa jobs no Cloud Run, gravando Parquet no GCS e BigQuery `raw` |
+| `data_models` | Transformações Analíticas (Dataform) | Cloud Build (aciona Cloud Workflow) | Executa modelos no BigQuery (`staging` e `marts`) para o Looker Studio |
 
-    subgraph Pipelines["CI/CD — Cloud Build"]
-        CBIaC["Cloud Build (IaC)<br/>terraform apply"]
-        CBApp["Cloud Build (App)<br/>Docker build & deploy"]
-        CBModels["Cloud Build (Dataform)<br/>aciona Workflow"]
-    end
-
-    subgraph GCP["GCP — Projetos Lake (stg / prd)"]
-        CR["Cloud Run<br/>(data-ingestion)"]
-        GCS["Cloud Storage<br/>(&lt;proj&gt;-raw)"]
-        BQRaw["BigQuery: raw"]
-        WF["Cloud Workflows & Scheduler<br/>(dataform-runner)"]
-        BQStg["BigQuery: staging"]
-        BQViews["Views Analíticas SQL<br/>(vw_program_activity)"]
-    end
-
-    subgraph Visualizacao["Camada de Visualização"]
-        Looker["Looker Studio<br/>(Dashboard de Mentorados)"]
-    end
-
-    IaC -->|"push/PR"| CBIaC
-    App -->|"push"| CBApp
-    Models -->|"push"| CBModels
-
-    CBIaC -->|"provisiona"| GCP
-    CBApp -->|"deploy"| CR
-    CR -->|"grava parquet"| GCS
-    CR -->|"carrega dados"| BQRaw
-
-    CBModels -->|"executa"| WF
-    WF -->|"compila e roda"| BQStg
-    BQRaw --> BQStg
-    BQStg --> BQViews
-    BQViews --> Looker
+```text
+GitHub (org gem-dados) ──► Cloud Build ──► GCP Lake (stg / prd) ──► Looker Studio
 ```
 
 | Ambiente | Projeto GCP | Branch que aplica |
